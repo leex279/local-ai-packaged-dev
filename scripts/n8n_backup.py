@@ -46,6 +46,32 @@ def get_user_choice():
             print("\nBackup cancelled.")
             exit(0)
 
+def confirm_sensitive_export():
+    """Warn user about sensitive data in credentials export."""
+    print("\n" + "="*70)
+    print("WARNING: SENSITIVE DATA EXPORT")
+    print("="*70)
+    print("You are about to export credentials which may contain:")
+    print("- API Keys")
+    print("- Passwords")
+    print("- Authentication Tokens")
+    print("\nTHESE ARE HIGHLY SENSITIVE PIECES OF INFORMATION!")
+    print("\nSafety Recommendations:")
+    print("1. Store exported files in a secure, encrypted location")
+    print("2. Do NOT share these files publicly")
+    print("3. Delete files when no longer needed")
+    print("="*70)
+    
+    while True:
+        response = input("\nAre you ABSOLUTELY SURE you want to proceed? (yes/no): ").strip().lower()
+        if response == 'yes':
+            return True
+        elif response == 'no':
+            print("Credential export cancelled.")
+            return False
+        else:
+            print("Please respond with 'yes' or 'no'.")
+
 def backup_workflows(backup_base, timestamp):
     """Backup n8n workflows."""
     workflows_dir = os.path.join(backup_base, 'workflows')
@@ -60,6 +86,10 @@ def backup_workflows(backup_base, timestamp):
 
 def backup_credentials(backup_base, timestamp):
     """Backup n8n credentials."""
+    # Confirm sensitive export
+    if not confirm_sensitive_export():
+        return False
+    
     credentials_dir = os.path.join(backup_base, 'credentials')
     command = f'docker exec n8n sh -c "n8n export:credentials --backup --output=/backup/credentials/{timestamp}"'
     if run_docker_command(command):
