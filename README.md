@@ -201,6 +201,20 @@ equals the one initialized with
    python start_services.py --profile gpu-nvidia
    ```
 
+### Selecting services with the configuration web app
+
+Install the Node dependencies and start the configurator:
+
+```bash
+npm install
+npm start
+```
+
+Visit <http://localhost:3000/> in your browser and choose the services you want
+to run. The selections are saved to `services_config.json`. The `start_services.py`
+script will read this file and start only the selected services (and their
+dependencies). Delete `services_config.json` to revert to starting all services.
+
 ## Deploying to the Cloud
 
 ### Prerequisites for the below steps

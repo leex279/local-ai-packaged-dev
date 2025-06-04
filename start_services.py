@@ -14,6 +14,21 @@ import time
 import argparse
 import platform
 import sys
+import json
+
+CONFIG_FILE = "services_config.json"
+
+def load_service_config():
+    """Load list of services from CONFIG_FILE if it exists."""
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                data = json.load(f)
+            return data.get("services", [])
+        except Exception as e:
+            print(f"Error reading {CONFIG_FILE}: {e}")
+            return []
+    return []
 
 def run_command(cmd, cwd=None):
     """Run a shell command and print it."""
@@ -63,7 +78,7 @@ def start_supabase(environment=None):
     cmd.extend(["up", "-d"])
     run_command(cmd)
 
-def start_local_ai(profile=None, environment=None):
+def start_local_ai(profile=None, environment=None, services=None):
     """Start the local AI services (using its compose file)."""
     print("Starting local AI services...")
     cmd = ["docker", "compose", "-p", "localai"]
@@ -75,6 +90,8 @@ def start_local_ai(profile=None, environment=None):
     if environment and environment == "public":
         cmd.extend(["-f", "docker-compose.override.public.yml"])
     cmd.extend(["up", "-d"])
+    if services:
+        cmd.extend(services)
     run_command(cmd)
 
 def generate_searxng_secret_key():
@@ -233,6 +250,8 @@ def main():
     check_and_fix_docker_compose_for_searxng()
     
     stop_existing_containers(args.profile)
+
+    services = load_service_config()
     
     # Start Supabase first
     start_supabase(args.environment)
@@ -242,7 +261,7 @@ def main():
     time.sleep(10)
     
     # Then start the local AI services
-    start_local_ai(args.profile, args.environment)
+    start_local_ai(args.profile, args.environment, services)
 
 if __name__ == "__main__":
     main()

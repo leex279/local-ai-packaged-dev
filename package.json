@@ -1,0 +1,14 @@
+{
+  "name": "service-configurator",
+  "version": "1.0.0",
+  "description": "Web UI for selecting docker-compose services",
+  "main": "configurator.js",
+  "scripts": {
+    "start": "node configurator.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ejs": "^3.1.9",
+    "js-yaml": "^4.1.0"
+  }
+}
