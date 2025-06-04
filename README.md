@@ -214,6 +214,8 @@ Visit <http://localhost:3000/> in your browser and choose the services you want
 to run. The selections are saved to `services_config.json`. The `start_services.py`
 script will read this file and start only the selected services (and their
 dependencies). Delete `services_config.json` to revert to starting all services.
+If you previously visited this address with another web app, clear browser
+storage (including service workers) to avoid stale resources causing 404 errors.
 
 ## Deploying to the Cloud
 
