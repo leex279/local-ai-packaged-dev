@@ -69,9 +69,24 @@ def clone_supabase_repo():
 def prepare_supabase_env():
     """Copy .env to .env in supabase/docker."""
     env_path = os.path.join("supabase", "docker", ".env")
-    env_example_path = os.path.join(".env")
-    print("Copying .env in root to .env in supabase/docker...")
-    shutil.copyfile(env_example_path, env_path)
+    
+    # Check for .env file in shared directory first (created by LocalAI UI), then root
+    shared_env_path = os.path.join("shared", ".env")
+    root_env_path = os.path.join(".env")
+    
+    if os.path.exists(shared_env_path):
+        env_source_path = shared_env_path
+        print("Using .env from shared/ directory (created by LocalAI UI configurator)...")
+    elif os.path.exists(root_env_path):
+        env_source_path = root_env_path
+        print("Using .env from project root...")
+    else:
+        print("ERROR: No .env file found in shared/ or project root!")
+        print("Please create a .env file or use the LocalAI UI configurator to generate one.")
+        sys.exit(1)
+    
+    print(f"Copying {env_source_path} to {env_path}...")
+    shutil.copyfile(env_source_path, env_path)
 
 def stop_existing_containers(profile=None, config=None):
     print("Stopping and removing existing containers for the unified project 'localai'...")
