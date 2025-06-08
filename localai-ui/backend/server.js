@@ -37,52 +37,40 @@ async function checkFileAccess(filePath) {
 
 
 
-// Load env file (prioritize shared/.env, then parent .env, then input template)
+// Load env file (ONLY from shared/.env - the single source of truth)
 app.get('/api/load-env', async (req, res) => {
   try {
     console.log('[DEBUG] Load env file request received');
     
     const basePath = process.env.NODE_ENV === 'production' ? '/app' : process.cwd();
     
-    // Try multiple locations in priority order
-    const envPaths = [
-      `${basePath}/shared/.env`,           // Shared volume (saved configs)
-      `${basePath}/../.env`,               // Parent project directory
-      `${basePath}/input/env`              // Template file
-    ];
+    // Only load from shared directory - the single source of truth
+    const sharedEnvPath = `${basePath}/shared/.env`;
     
-    let content = '';
-    let sourcePath = '';
-    
-    for (const envPath of envPaths) {
-      try {
-        const fileExists = await checkFileAccess(envPath);
-        if (fileExists) {
-          content = await readFile(envPath, 'utf8');
-          sourcePath = envPath;
-          console.log(`[DEBUG] Loaded env file from: ${sourcePath}`);
-          break;
-        }
-      } catch (error) {
-        console.log(`[DEBUG] Failed to load from ${envPath}: ${error.message}`);
-        continue;
+    try {
+      const fileExists = await checkFileAccess(sharedEnvPath);
+      if (!fileExists) {
+        console.error(`[ERROR] No env file found at expected location: ${sharedEnvPath}`);
+        return res.status(404).json({ 
+          error: 'No environment file found in shared directory',
+          expectedPath: sharedEnvPath,
+          message: 'Please run start_configurator.py to initialize the environment file'
+        });
       }
-    }
-    
-    if (!content) {
-      console.error('[ERROR] No env file found in any location');
-      return res.status(404).json({ 
-        error: 'No environment file found',
-        searchedPaths: envPaths
+      
+      const content = await readFile(sharedEnvPath, 'utf8');
+      console.log(`[DEBUG] Loaded env file from shared directory: ${sharedEnvPath}`);
+      console.log(`[DEBUG] Env file content length: ${content.length} bytes`);
+      
+      res.json({ 
+        content, 
+        sourcePath: '/shared/.env',
+        success: true 
       });
+    } catch (error) {
+      console.error(`[ERROR] Failed to load from ${sharedEnvPath}: ${error.message}`);
+      throw error;
     }
-    
-    console.log(`[DEBUG] Env file content length: ${content.length} bytes`);
-    res.json({ 
-      content, 
-      sourcePath: sourcePath.replace(basePath, ''),
-      success: true 
-    });
   } catch (error) {
     console.error('[ERROR] Error loading env file:', error);
     res.status(500).json({ 
@@ -106,29 +94,22 @@ app.post('/api/save-env', async (req, res) => {
     
     const basePath = process.env.NODE_ENV === 'production' ? '/app' : process.cwd();
     
-    // Save to shared volume (.env) - this is accessible and where start_services.py expects it
-    // Also save backup to output directory for reference
+    // Save ONLY to shared/.env - the single source of truth
     const sharedEnvPath = `${basePath}/shared/.env`;
-    const outputBackupPath = `${basePath}/output/.env`;
     
-    const envPath = path || sharedEnvPath;
-    console.log(`[DEBUG] Saving env file to shared volume: ${envPath}`);
-    console.log(`[DEBUG] Also saving backup to: ${outputBackupPath}`);
+    console.log(`[DEBUG] Saving env file to shared directory: ${sharedEnvPath}`);
     
-    // Save to shared volume (main file that start_services.py can access)
-    await writeFile(envPath, content, 'utf8');
+    // Ensure shared directory exists
+    await ensureDirectoryExists(sharedEnvPath);
     
-    // Also save backup to output directory
-    await ensureDirectoryExists(outputBackupPath);
-    await writeFile(outputBackupPath, content, 'utf8');
+    // Save to shared directory only
+    await writeFile(sharedEnvPath, content, 'utf8');
     
-    console.log(`[DEBUG] Env file saved successfully to shared volume: ${envPath}`);
-    console.log(`[DEBUG] Backup saved to: ${outputBackupPath}`);
+    console.log(`[DEBUG] Env file saved successfully to: ${sharedEnvPath}`);
     res.json({ 
       success: true, 
-      path: envPath,
-      backupPath: outputBackupPath,
-      message: 'Environment file saved to project root and backup created'
+      path: sharedEnvPath,
+      message: 'Environment file saved to shared directory'
     });
   } catch (error) {
     console.error('[ERROR] Error saving env file:', error);

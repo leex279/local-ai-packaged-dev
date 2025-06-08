@@ -119,40 +119,27 @@ def ensure_directories():
         else:
             print("⚠️  Warning: No docker-compose.yml found in input directory")
     
-    # Create default env file if it doesn't exist
-    input_env = Path(os.path.join(LOCALAI_UI_DIR, 'input', 'env'))
-    if not input_env.exists():
-        # Check for .env file in shared directory first, then root
-        shared_env = Path(os.path.join(SCRIPT_DIR, 'shared', '.env'))
-        root_env = Path(os.path.join(SCRIPT_DIR, '.env'))
-        
-        if shared_env.exists():
-            print("📋 Copying .env from shared directory to input directory...")
-            import shutil
-            shutil.copy2(str(shared_env), str(input_env))
-        elif root_env.exists():
-            print("📋 Copying .env template to input directory...")
-            import shutil
-            shutil.copy2(str(root_env), str(input_env))
-        else:
-            # Create a minimal env file
-            print("📋 Creating minimal env template...")
-            input_env.write_text("""# LocalAI UI Configuration Environment
-# Copy this file and customize as needed
-
-# Example environment variables
-# POSTGRES_PASSWORD=your_secure_password
-# JWT_SECRET=your_jwt_secret
-""")
-    
-    # Also copy parent .env to shared directory for webapp access
-    shared_env = Path(os.path.join(SCRIPT_DIR, 'shared', '.env'))
+    # Ensure .env exists in project root (copy from .env.example if needed)
     root_env = Path(os.path.join(SCRIPT_DIR, '.env'))
+    root_env_example = Path(os.path.join(SCRIPT_DIR, '.env.example'))
     
-    if root_env.exists() and not shared_env.exists():
-        print("📋 Copying parent .env to shared directory for webapp access...")
+    if not root_env.exists() and root_env_example.exists():
+        print("📋 Creating .env from .env.example...")
+        import shutil
+        shutil.copy2(str(root_env_example), str(root_env))
+        print("⚠️  Please edit .env with your actual configuration values!")
+    elif not root_env.exists():
+        print("⚠️  Warning: No .env or .env.example found in project root")
+    
+    # Copy .env to shared directory for webapp access
+    shared_env = Path(os.path.join(SCRIPT_DIR, 'shared', '.env'))
+    
+    if root_env.exists():
+        print("📋 Copying .env to shared directory for webapp access...")
         import shutil
         shutil.copy2(str(root_env), str(shared_env))
+    else:
+        print("⚠️  Warning: No .env file found to copy to shared directory")
     
     print("✅ Directory setup completed")
     return True
