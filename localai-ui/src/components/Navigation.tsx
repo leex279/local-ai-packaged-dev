@@ -1,9 +1,9 @@
 import React from 'react';
-import { Settings2Icon, FileTextIcon, PlayIcon, ActivityIcon } from 'lucide-react';
+import { Settings2Icon, FileTextIcon, PlayIcon, ActivityIcon, DownloadIcon } from 'lucide-react';
 
 interface NavigationProps {
-  activeTab: 'env' | 'orchestrator' | 'monitoring';
-  onTabChange: (tab: 'env' | 'orchestrator' | 'monitoring') => void;
+  activeTab: 'env' | 'orchestrator' | 'monitoring' | 'export';
+  onTabChange: (tab: 'env' | 'orchestrator' | 'monitoring' | 'export') => void;
 }
 
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
@@ -23,6 +23,17 @@ export default function Navigation({ activeTab, onTabChange }: NavigationProps) 
             Service Orchestrator
           </button>
           <button
+            onClick={() => onTabChange('env')}
+            className={`flex items-center px-4 py-3 text-sm font-medium ${
+              activeTab === 'env'
+                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <FileTextIcon className="w-4 h-4 mr-2" />
+            Environment Variables
+          </button>
+          <button
             onClick={() => onTabChange('monitoring')}
             className={`flex items-center px-4 py-3 text-sm font-medium ${
               activeTab === 'monitoring'
@@ -33,17 +44,13 @@ export default function Navigation({ activeTab, onTabChange }: NavigationProps) 
             <ActivityIcon className="w-4 h-4 mr-2" />
             Monitoring
           </button>
-          <button
-            onClick={() => onTabChange('env')}
-            className={`flex items-center px-4 py-3 text-sm font-medium ${
-              activeTab === 'env'
-                ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
+          <div
+            className="flex items-center px-4 py-3 text-sm font-medium text-gray-400 dark:text-gray-500 cursor-not-allowed"
+            title="Feature coming soon"
           >
-            <FileTextIcon className="w-4 h-4 mr-2" />
-            Environment Variables (WIP)
-          </button>
+            <DownloadIcon className="w-4 h-4 mr-2" />
+            Export/Import (coming soon...)
+          </div>
         </div>
       </div>
     </nav>

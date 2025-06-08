@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DownloadIcon } from 'lucide-react';
 import { EnvVariable } from './types';
 import { loadConfig } from './config';
 import { loadEnvFile, saveEnvFile } from './utils/envFileHandler';
@@ -11,7 +12,7 @@ import MonitoringDashboard from './components/Monitoring/MonitoringDashboard';
 function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'env' | 'orchestrator' | 'monitoring'>('orchestrator');
+  const [activeTab, setActiveTab] = useState<'env' | 'orchestrator' | 'monitoring' | 'export'>('orchestrator');
   const [envVariables, setEnvVariables] = useState<EnvVariable[]>([]);
   const [config, setConfig] = useState<any>(null);
   const [loadingStatus, setLoadingStatus] = useState<string>('Initializing...');
@@ -147,6 +148,8 @@ function App() {
               ? 'Manage your local AI services with intelligent configuration and real-time orchestration. Configure which services to run and control them directly from this interface.'
               : activeTab === 'monitoring'
               ? 'Monitor and manage your Docker containers in real-time. View container status, logs, resource usage, and perform basic lifecycle operations.'
+              : activeTab === 'export'
+              ? 'Export and import your service configurations, environment variables, and Docker compose files. Coming soon!'
               : 'Configure your environment variables. These settings will be saved to your .env file.'}
           </p>
         </div>
@@ -155,6 +158,17 @@ function App() {
           <ServiceOrchestrator className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm" />
         ) : activeTab === 'monitoring' ? (
           <MonitoringDashboard className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm" />
+        ) : activeTab === 'export' ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-8 text-center">
+            <div className="text-gray-500 dark:text-gray-400">
+              <DownloadIcon className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+              <h3 className="text-xl font-semibold mb-2">Export/Import Feature</h3>
+              <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                This feature will allow you to export your current configuration as a complete Docker Compose setup 
+                and import configurations from other environments. Stay tuned!
+              </p>
+            </div>
+          </div>
         ) : (
           <EnvConfigurator
             variables={envVariables}
