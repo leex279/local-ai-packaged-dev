@@ -1,13 +1,29 @@
 import { CustomServicesJson, ServiceStatus, ServiceOrchestrationAPI } from '../types';
+import { loadConfig } from '../config';
 
 class ServiceOrchestrationClient implements ServiceOrchestrationAPI {
   private baseUrl: string;
+  private configLoaded: boolean = false;
 
   constructor(baseUrl: string = 'http://localhost:5001/api') {
     this.baseUrl = baseUrl;
   }
 
+  private async ensureConfigLoaded(): Promise<void> {
+    if (!this.configLoaded) {
+      try {
+        const config = await loadConfig();
+        this.baseUrl = `${config.apiBaseUrl}/api`;
+        this.configLoaded = true;
+        console.log(`[DEBUG] ServiceOrchestrationClient using API URL: ${this.baseUrl}`);
+      } catch (error) {
+        console.warn('[WARN] Failed to load config for ServiceOrchestrationClient, using default URL');
+      }
+    }
+  }
+
   async getCustomServices(): Promise<CustomServicesJson> {
+    await this.ensureConfigLoaded();
     const response = await fetch(`${this.baseUrl}/custom-services`);
     if (!response.ok) {
       throw new Error(`Failed to fetch custom services: ${response.statusText}`);
@@ -16,6 +32,7 @@ class ServiceOrchestrationClient implements ServiceOrchestrationAPI {
   }
 
   async updateCustomServices(config: CustomServicesJson): Promise<void> {
+    await this.ensureConfigLoaded();
     const response = await fetch(`${this.baseUrl}/custom-services`, {
       method: 'POST',
       headers: {
@@ -30,6 +47,7 @@ class ServiceOrchestrationClient implements ServiceOrchestrationAPI {
   }
 
   async getServiceStatus(): Promise<ServiceStatus[]> {
+    await this.ensureConfigLoaded();
     const response = await fetch(`${this.baseUrl}/service-status`);
     if (!response.ok) {
       throw new Error(`Failed to fetch service status: ${response.statusText}`);
@@ -38,6 +56,7 @@ class ServiceOrchestrationClient implements ServiceOrchestrationAPI {
   }
 
   async startServices(serviceIds: string[], profile: string, environment: string): Promise<void> {
+    await this.ensureConfigLoaded();
     const response = await fetch(`${this.baseUrl}/start-services`, {
       method: 'POST',
       headers: {
@@ -52,6 +71,7 @@ class ServiceOrchestrationClient implements ServiceOrchestrationAPI {
   }
 
   async stopServices(serviceIds: string[]): Promise<void> {
+    await this.ensureConfigLoaded();
     const response = await fetch(`${this.baseUrl}/stop-services`, {
       method: 'POST',
       headers: {
