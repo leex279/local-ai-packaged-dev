@@ -153,7 +153,7 @@ app.get('/api/custom-services', async (req, res) => {
               required: false,
               description: "Workflow automation platform",
               category: "ai",
-              dependencies: ["n8n-import"]
+              dependencies: ["n8n-import", "postgres"]
             },
             "n8n-import": {
               enabled: false,

@@ -354,7 +354,7 @@ export const defaultCustomServices: CustomServicesJson = {
         required: false,
         description: "Workflow automation platform",
         category: "ai",
-        dependencies: ["n8n-import", "supabase"]
+        dependencies: ["n8n-import", "postgres"]
       },
       "n8n-import": {
         enabled: true,
