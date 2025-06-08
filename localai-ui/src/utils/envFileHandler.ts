@@ -153,6 +153,26 @@ export function parseEnvFile(content: string): EnvVariable[] {
 
     // Handle comments
     if (trimmed.startsWith('#')) {
+      // Check if this is a commented variable (e.g., # N8N_HOSTNAME=example.com)
+      const commentedVarMatch = trimmed.match(/^#\s*([A-Z_][A-Z0-9_]*)=(.*)$/);
+      if (commentedVarMatch) {
+        const key = commentedVarMatch[1].trim();
+        const value = commentedVarMatch[2].trim();
+        
+        variables.push({
+          key,
+          value,
+          description: description || undefined,
+          required,
+          commented: true // Mark as commented/optional
+        });
+        
+        // Reset for next variable
+        description = '';
+        required = false;
+        continue;
+      }
+      
       // Skip decorative comment lines (only # symbols or short decorative text)
       if (trimmed.match(/^#+\s*$/) || 
           trimmed.match(/^#+\s*[\-\=\*\+\~\#\s]*$/) ||
@@ -173,6 +193,11 @@ export function parseEnvFile(content: string): EnvVariable[] {
         required = true;
       }
       
+      // Check for production required marker
+      if (trimmed.toLowerCase().includes('[required for prod]')) {
+        required = false; // These are optional but recommended for production
+      }
+      
       // Only use meaningful comments as descriptions
       const commentText = trimmed.substring(1).trim();
       
@@ -180,7 +205,7 @@ export function parseEnvFile(content: string): EnvVariable[] {
       if (!commentText.match(/^[\-\=\*\+\~\#\s]*$/) && 
           !commentText.match(/^[A-Z][a-z\s\-]*$/) && // Skip simple category headers like "Database"
           commentText.length > 10) { // Must be substantial text
-        description = commentText.replace(/\[required\]/gi, '').trim();
+        description = commentText.replace(/\[required\]/gi, '').replace(/\[required for prod\]/gi, '').trim();
       }
       continue;
     }
@@ -195,7 +220,8 @@ export function parseEnvFile(content: string): EnvVariable[] {
         key,
         value,
         description: description || undefined,
-        required
+        required,
+        commented: false // Not commented
       });
       
       // Reset for next variable
@@ -216,8 +242,12 @@ export function generateEnvFile(variables: EnvVariable[]): string {
       output += `# ${variable.description}\n`;
     }
 
-    // Add the variable declaration
-    output += `${variable.key}=${variable.value}\n\n`;
+    // Add the variable declaration (commented or uncommented based on toggle state)
+    if (variable.commented) {
+      output += `# ${variable.key}=${variable.value}\n\n`;
+    } else {
+      output += `${variable.key}=${variable.value}\n\n`;
+    }
   }
 
   return output.trim();

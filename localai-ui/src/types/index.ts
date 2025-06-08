@@ -46,6 +46,7 @@ export interface EnvVariable {
   required?: boolean;
   category?: string;
   type?: 'text' | 'password' | 'secret' | 'number' | 'boolean' | 'url' | 'email';
+  commented?: boolean; // Whether the variable is commented out (disabled)
 }
 
 export interface EnvConfig {

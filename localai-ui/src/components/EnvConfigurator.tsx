@@ -1,14 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { SaveIcon, AlertCircleIcon, EyeIcon, EyeOffIcon, UploadIcon, Download, ClipboardCopy, Check, RefreshCw, Key, Wand2 } from 'lucide-react';
+import { SaveIcon, AlertCircleIcon, EyeIcon, EyeOffIcon, UploadIcon, Download, ClipboardCopy, Check, RefreshCw, Key, Wand2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { loadConfig } from '../config';
 import { generateAllSecrets, generateRandomString, generateSecurePassword, generateJWTSecret, generateHexKey } from '../utils/envFileHandler';
-
-export interface EnvVariable {
-  key: string;
-  value: string;
-  description?: string;
-  required?: boolean;
-}
+import { EnvVariable } from '../types';
 
 interface EnvConfiguratorProps {
   variables?: EnvVariable[];
@@ -84,7 +78,12 @@ function generateEnvContent(variables: EnvVariable[]): string {
       if (variable.description) {
         lines.push(`# ${variable.description}`);
       }
-      lines.push(`${variable.key}=${variable.value}`);
+      // Add the variable declaration (commented or uncommented based on toggle state)
+      if (variable.commented) {
+        lines.push(`# ${variable.key}=${variable.value}`);
+      } else {
+        lines.push(`${variable.key}=${variable.value}`);
+      }
       return lines.join('\n');
     })
     .join('\n\n');
@@ -365,6 +364,27 @@ export default function EnvConfigurator({ variables: initialVariables = [], onSa
                             <span>Required</span>
                           </div>
                         )}
+                        {typeof variable.commented !== 'undefined' && (
+                          <div className="flex items-center mt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleVariableChange(originalIndex, 'commented', !variable.commented)}
+                              className={`flex items-center gap-2 text-xs transition-colors ${
+                                variable.commented 
+                                  ? 'text-gray-500 dark:text-gray-400' 
+                                  : 'text-blue-600 dark:text-blue-400'
+                              }`}
+                              title={variable.commented ? 'Click to enable (uncomment)' : 'Click to disable (comment out)'}
+                            >
+                              {variable.commented ? (
+                                <ToggleLeft className="w-4 h-4" />
+                              ) : (
+                                <ToggleRight className="w-4 h-4" />
+                              )}
+                              <span>{variable.commented ? 'Disabled' : 'Enabled'}</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <div className="col-span-5">
                         <div className="relative">
@@ -373,12 +393,15 @@ export default function EnvConfigurator({ variables: initialVariables = [], onSa
                             value={variable.value}
                             onChange={(e) => handleVariableChange(originalIndex, 'value', e.target.value)}
                             placeholder={variable.required ? "Required value" : "Optional"}
-                            className={`w-full px-3 py-2 pr-20 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors ${
-                              variable.required && (!hasValue || isPlaceholder)
-                                ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
+                            disabled={variable.commented}
+                            className={`w-full px-3 py-2 pr-20 border rounded-lg transition-colors ${
+                              variable.commented
+                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed'
+                                : variable.required && (!hasValue || isPlaceholder)
+                                ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                                 : variable.required
-                                ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20'
-                                : 'border-gray-300 dark:border-gray-600'
+                                ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                             }`}
                           />
                           <div className="absolute right-2 top-2 flex items-center gap-1">
