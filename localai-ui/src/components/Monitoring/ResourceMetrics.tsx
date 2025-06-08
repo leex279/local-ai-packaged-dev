@@ -55,7 +55,7 @@ export default function ResourceMetrics({ containerId, stats }: ResourceMetricsP
 
   if (!stats) {
     return (
-      <div className="h-96 p-4">
+      <div className="p-4">
         <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Resource Usage
         </h4>
@@ -70,7 +70,7 @@ export default function ResourceMetrics({ containerId, stats }: ResourceMetricsP
   }
 
   return (
-    <div className="h-96 p-4">
+    <div className="p-4">
       <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
         Resource Usage
       </h4>

@@ -25,24 +25,24 @@ export async function loadConfig(): Promise<Config> {
     const config = await response.json();
     console.log('[DEBUG] Loaded config:', config);
     
-    // Adjust API URL for Docker
+    // Adjust API URL to use current host
     const finalConfig = { ...defaultConfig, ...config };
-    if (window.location.hostname !== 'localhost') {
-      finalConfig.apiBaseUrl = finalConfig.apiBaseUrl.replace('localhost', window.location.hostname);
-      console.log(`[DEBUG] Adjusted API URL for Docker: ${finalConfig.apiBaseUrl}`);
-    }
+    const currentOrigin = window.location.origin;
+    const apiPort = finalConfig.apiBaseUrl.split(':').pop(); // Extract port from URL
+    finalConfig.apiBaseUrl = `${currentOrigin.replace(':5000', `:${apiPort}`)}`;
+    console.log(`[DEBUG] Adjusted API URL to use current host: ${finalConfig.apiBaseUrl}`);
     
     return finalConfig;
   } catch (error) {
     console.warn('[WARN] Failed to load config.json, using default configuration:', error);
     console.log('[DEBUG] Default config:', defaultConfig);
     
-    // Still adjust API URL for Docker in default config
+    // Still adjust API URL to use current host in default config
     const finalConfig = { ...defaultConfig };
-    if (window.location.hostname !== 'localhost') {
-      finalConfig.apiBaseUrl = finalConfig.apiBaseUrl.replace('localhost', window.location.hostname);
-      console.log(`[DEBUG] Adjusted default API URL for Docker: ${finalConfig.apiBaseUrl}`);
-    }
+    const currentOrigin = window.location.origin;
+    const apiPort = finalConfig.apiBaseUrl.split(':').pop(); // Extract port from URL
+    finalConfig.apiBaseUrl = `${currentOrigin.replace(':5000', `:${apiPort}`)}`;
+    console.log(`[DEBUG] Adjusted default API URL to use current host: ${finalConfig.apiBaseUrl}`);
     
     return finalConfig;
   }

@@ -119,7 +119,7 @@ export default function ContainerLogs({ containerId, autoRefresh }: ContainerLog
   };
 
   return (
-    <div className="h-96 flex flex-col">
+    <div className="min-h-96 max-h-screen flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <h4 className="text-lg font-medium text-gray-900 dark:text-white">

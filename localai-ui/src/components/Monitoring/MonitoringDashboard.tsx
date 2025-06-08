@@ -300,15 +300,17 @@ export default function MonitoringDashboard({ className }: MonitoringDashboardPr
       {state.selectedContainer && (
         <div className="border-t border-gray-200 dark:border-gray-700">
           <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               <ContainerLogs
                 containerId={state.selectedContainer}
                 autoRefresh={state.autoRefresh}
               />
-              <ResourceMetrics
-                containerId={state.selectedContainer}
-                stats={state.containerStats[state.selectedContainer]}
-              />
+              <div className="space-y-4">
+                <ResourceMetrics
+                  containerId={state.selectedContainer}
+                  stats={state.containerStats[state.selectedContainer]}
+                />
+              </div>
             </div>
           </div>
         </div>
