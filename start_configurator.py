@@ -14,6 +14,8 @@ import webbrowser
 import platform
 import signal
 import threading
+import json
+import datetime
 from pathlib import Path
 
 # Get the script directory for reliable path resolution
@@ -143,31 +145,121 @@ def ensure_directories():
 # JWT_SECRET=your_jwt_secret
 """)
     
+    # Also copy parent .env to shared directory for webapp access
+    shared_env = Path(os.path.join(SCRIPT_DIR, 'shared', '.env'))
+    root_env = Path(os.path.join(SCRIPT_DIR, '.env'))
+    
+    if root_env.exists() and not shared_env.exists():
+        print("📋 Copying parent .env to shared directory for webapp access...")
+        import shutil
+        shutil.copy2(str(root_env), str(shared_env))
+    
     print("✅ Directory setup completed")
     return True
 
 def stop_existing_container():
-    """Stop and remove any existing containers and images."""
-    print("🧹 Cleaning up existing containers...")
+    """Stop any existing containers but preserve images for reuse."""
+    print("🧹 Stopping existing containers...")
     
     try:
-        # Use docker-compose to stop and remove from localai-ui directory
+        # Use docker-compose to stop and remove containers from localai-ui directory
         subprocess.run(['docker', 'compose', 'down', '--remove-orphans'], 
                       cwd=LOCALAI_UI_DIR, capture_output=True, check=False)
         
-        # Remove any leftover images
-        subprocess.run(['docker', 'image', 'rm', 'localai-ui', '-f'], 
-                      capture_output=True, check=False)
-        subprocess.run(['docker', 'image', 'rm', 'localai-ui-localai-ui', '-f'], 
-                      capture_output=True, check=False)
-        
-        print("✅ Cleanup completed")
+        print("✅ Container cleanup completed")
     except Exception as e:
         print(f"⚠️  Warning during cleanup: {e}")
 
-def build_container():
-    """Build the Docker container using docker-compose."""
-    print("🔨 Building Docker container...")
+def get_image_info(image_name):
+    """Get information about a Docker image."""
+    try:
+        result = subprocess.run([
+            'docker', 'image', 'inspect', image_name
+        ], capture_output=True, text=True, check=False)
+        
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            if data:
+                created_str = data[0]['Created']
+                # Parse ISO format: 2024-01-01T12:00:00.000000000Z
+                created_time = datetime.datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                return {
+                    'exists': True,
+                    'created': created_time,
+                    'id': data[0]['Id']
+                }
+        return {'exists': False}
+    except Exception as e:
+        print(f"⚠️  Warning: Could not inspect image {image_name}: {e}")
+        return {'exists': False}
+
+def get_source_files_mtime():
+    """Get the most recent modification time of source files."""
+    source_patterns = [
+        'src/**/*',
+        'backend/**/*',
+        'package*.json',
+        'tsconfig*.json',
+        'vite.config.ts',
+        'tailwind.config.js',
+        'postcss.config.js',
+        'eslint.config.js',
+        'Dockerfile',
+        'docker-compose.yml'
+    ]
+    
+    latest_mtime = datetime.datetime.fromtimestamp(0, tz=datetime.timezone.utc)
+    
+    try:
+        import glob
+        for pattern in source_patterns:
+            files = glob.glob(os.path.join(LOCALAI_UI_DIR, pattern), recursive=True)
+            for file_path in files:
+                if os.path.isfile(file_path):
+                    mtime = datetime.datetime.fromtimestamp(
+                        os.path.getmtime(file_path), 
+                        tz=datetime.timezone.utc
+                    )
+                    if mtime > latest_mtime:
+                        latest_mtime = mtime
+    except Exception as e:
+        print(f"⚠️  Warning: Could not check source file times: {e}")
+        # If we can't check, assume rebuild is needed
+        return datetime.datetime.now(tz=datetime.timezone.utc)
+    
+    return latest_mtime
+
+def should_rebuild_image():
+    """Determine if the Docker image needs to be built or rebuilt."""
+    image_name = 'localai-ui-localai-ui'  # docker-compose prefixes with directory name
+    
+    # Check if image exists
+    image_info = get_image_info(image_name)
+    
+    if not image_info['exists']:
+        print("🔍 Docker image not found, build required")
+        return True
+    
+    # Check if source files are newer than image
+    image_created = image_info['created']
+    source_mtime = get_source_files_mtime()
+    
+    if source_mtime > image_created:
+        print(f"🔍 Source files newer than image (source: {source_mtime.strftime('%Y-%m-%d %H:%M:%S')}, image: {image_created.strftime('%Y-%m-%d %H:%M:%S')})")
+        return True
+    
+    print(f"✅ Docker image is up to date (created: {image_created.strftime('%Y-%m-%d %H:%M:%S')})")
+    return False
+
+def build_container(force_rebuild=False):
+    """Build the Docker container using docker-compose if needed."""
+    if force_rebuild:
+        print("🔨 Force rebuilding Docker container...")
+    elif not should_rebuild_image():
+        print("⏭️  Skipping build - Docker image is up to date")
+        return True
+    else:
+        print("🔨 Building Docker container...")
     
     try:
         # Use docker-compose to build from localai-ui directory
@@ -289,6 +381,8 @@ def main():
                        help='Show container logs and keep console open (default: detached mode)')
     parser.add_argument('--no-browser', action='store_true',
                        help='Do not open browser automatically')
+    parser.add_argument('--rebuild', action='store_true',
+                       help='Force rebuild of Docker image even if up to date')
     args = parser.parse_args()
     
     # Set up signal handlers only if we're showing logs
@@ -309,8 +403,8 @@ def main():
     # Stop any existing containers
     stop_existing_container()
     
-    # Build container
-    if not build_container():
+    # Build container (only if needed)
+    if not build_container(force_rebuild=args.rebuild):
         sys.exit(1)
     
     # Start container
@@ -389,6 +483,7 @@ def main():
     else:
         print("🔧 Services running in detached mode")
         print("💡 Use 'python3 start_configurator.py --logs' to view logs")
+        print("💡 Use 'python3 start_configurator.py --rebuild' to force rebuild")
         print("💡 Use 'docker compose -f localai-ui/docker-compose.yml down' to stop services")
         print("=" * 60)
 
