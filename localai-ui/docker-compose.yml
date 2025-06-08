@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  localai-ui:
+    build: .
+    ports:
+      - "5000:5000"  # Frontend
+      - "5001:5001"  # Backend API
+    volumes:
+      - ./input:/app/input:ro
+      - ./output:/app/output
+      - ../shared:/app/shared  # For communication with parent project
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker socket for monitoring
+    environment:
+      - VITE_API_URL=http://localhost:5001
+      - PORT=5001
+      - NODE_ENV=production
+    # Use the host docker group ID for Docker socket access
+    # You may need to adjust this based on your system's docker group ID
+    group_add:
+      - "${DOCKER_GROUP_ID:-999}"
+    restart: unless-stopped

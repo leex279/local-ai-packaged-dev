@@ -1,0 +1,13 @@
+{
+  "name": "docker-compose-configurator-backend",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "dockerode": "^4.0.2"
+  }
+}
