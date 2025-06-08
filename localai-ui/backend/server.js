@@ -167,11 +167,38 @@ app.get('/api/service-state', async (req, res) => {
 
 // Legacy endpoint for backward compatibility
 app.get('/api/custom-services', async (req, res) => {
-  // Redirect to new endpoint
   try {
-    const response = await fetch(`${req.protocol}://${req.get('host')}/api/service-state`);
-    const data = await response.json();
-    res.json(data);
+    console.log(`[DEBUG] Legacy custom-services endpoint called`);
+    
+    const basePath = process.env.NODE_ENV === 'production' ? '/app' : process.cwd();
+    const sharedPath = `${basePath}/shared/custom_services.json`;
+    
+    // Check if custom services file exists
+    const fileExists = await checkFileAccess(sharedPath);
+    if (!fileExists) {
+      console.log(`[DEBUG] Service state file not found, returning empty state (legacy)`);
+      return res.json({
+        version: "1.0",
+        description: "Service state configuration",
+        services: {},
+        profiles: {
+          cpu: { description: "CPU-only mode for Ollama", default: true },
+          "gpu-nvidia": { description: "NVIDIA GPU support for Ollama", default: false },
+          "gpu-amd": { description: "AMD GPU support for Ollama with ROCm", default: false },
+          none: { description: "No local Ollama (for external instances)", default: false }
+        },
+        environments: {
+          private: { description: "Development mode with all ports exposed", default: true },
+          public: { description: "Production mode with only ports 80/443 exposed", default: false }
+        }
+      });
+    }
+    
+    const content = await readFile(sharedPath, 'utf8');
+    const config = JSON.parse(content);
+    
+    console.log(`[DEBUG] Service state loaded successfully (legacy)`);
+    res.json(config);
   } catch (error) {
     console.error('[ERROR] Error in legacy custom-services endpoint:', error);
     res.status(500).json({ 
@@ -223,15 +250,32 @@ app.post('/api/service-state', async (req, res) => {
 // Legacy save endpoint for backward compatibility
 app.post('/api/custom-services', async (req, res) => {
   try {
-    const response = await fetch(`${req.protocol}://${req.get('host')}/api/service-state`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(req.body)
-    });
-    const data = await response.json();
-    res.json(data);
+    console.log(`[DEBUG] Legacy custom-services save endpoint called`);
+    const { config } = req.body;
+    
+    if (!config) {
+      console.error(`[ERROR] No config provided for save service state (legacy)`);
+      return res.status(400).json({ error: 'No config provided' });
+    }
+    
+    // Save to both output directory and shared directory (where start_services.py expects it)
+    const basePath = process.env.NODE_ENV === 'production' ? '/app' : process.cwd();
+    const outputPath = `${basePath}/output/custom_services.json`;
+    const sharedPath = `${basePath}/shared/custom_services.json`;
+    
+    console.log(`[DEBUG] Saving service state to: ${outputPath} and ${sharedPath} (legacy)`);
+    
+    const configJson = JSON.stringify(config, null, 2);
+    
+    await ensureDirectoryExists(outputPath);
+    await writeFile(outputPath, configJson, 'utf8');
+    
+    // Also save to shared directory so start_services.py can access it
+    await ensureDirectoryExists(sharedPath);
+    await writeFile(sharedPath, configJson, 'utf8');
+    
+    console.log(`[DEBUG] Service state saved successfully (legacy)`);
+    res.json({ success: true, paths: [outputPath, sharedPath] });
   } catch (error) {
     console.error('[ERROR] Error in legacy custom-services save endpoint:', error);
     res.status(500).json({ 
