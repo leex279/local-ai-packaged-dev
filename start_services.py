@@ -320,6 +320,10 @@ def get_enabled_services(config, profile='cpu'):
                 # Skip services with external_compose since they're handled separately
                 if service_config.get('external_compose', False):
                     continue
+                
+                # Skip localai-ui as it runs independently 
+                if service_id == 'localai-ui':
+                    continue
                     
                 # Handle profile-specific services (e.g., ollama variants)
                 if 'profiles' in service_config and profile in service_config['profiles']:
