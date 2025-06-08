@@ -16,6 +16,7 @@ import {
   environmentDefinitions,
   ServiceDefinition
 } from '../data/serviceDefinitions';
+import { CheckSquare, Square, ToggleLeft, ToggleRight, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface ServiceOrchestratorProps {
   className?: string;
@@ -29,6 +30,8 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [selectAllStates, setSelectAllStates] = useState<{[category: string]: boolean}>({});
 
   useEffect(() => {
     loadServicesConfiguration();
@@ -262,6 +265,79 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
     }
   };
 
+  // Helper functions for new UI
+  const toggleCategory = (category: string) => {
+    const newCollapsed = new Set(collapsedCategories);
+    if (newCollapsed.has(category)) {
+      newCollapsed.delete(category);
+    } else {
+      newCollapsed.add(category);
+    }
+    setCollapsedCategories(newCollapsed);
+  };
+
+  const handleSelectAllCategory = (category: string, enabled: boolean) => {
+    if (!customServices) return;
+
+    const updatedServices = { ...customServices };
+    const categoryServices = updatedServices.services[category];
+
+    if (categoryServices) {
+      Object.keys(categoryServices).forEach(serviceId => {
+        categoryServices[serviceId] = { ...categoryServices[serviceId], enabled };
+      });
+
+      setCustomServices(updatedServices);
+      setSelectAllStates({ ...selectAllStates, [category]: enabled });
+    }
+  };
+
+  const handleSelectAllGlobal = (enabled: boolean) => {
+    if (!customServices) return;
+
+    const updatedServices = { ...customServices };
+    const newSelectAllStates: {[category: string]: boolean} = {};
+
+    Object.keys(updatedServices.services).forEach(category => {
+      Object.keys(updatedServices.services[category]).forEach(serviceId => {
+        updatedServices.services[category][serviceId] = { 
+          ...updatedServices.services[category][serviceId], 
+          enabled 
+        };
+      });
+      newSelectAllStates[category] = enabled;
+    });
+
+    setCustomServices(updatedServices);
+    setSelectAllStates(newSelectAllStates);
+  };
+
+  const getCategoryStats = (category: string) => {
+    if (!customServices?.services[category]) return { enabled: 0, total: 0 };
+    
+    const services = Object.values(customServices.services[category]);
+    const enabled = services.filter(s => s.enabled).length;
+    const total = services.length;
+    
+    return { enabled, total };
+  };
+
+  const getGlobalStats = () => {
+    if (!customServices) return { enabled: 0, total: 0 };
+    
+    let enabled = 0;
+    let total = 0;
+    
+    Object.values(customServices.services).forEach(category => {
+      Object.values(category).forEach(service => {
+        total++;
+        if (service.enabled) enabled++;
+      });
+    });
+    
+    return { enabled, total };
+  };
+
   if (loading && !customServices) {
     return (
       <div className={`p-6 ${className}`}>
@@ -285,7 +361,7 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
   }
 
   const servicesByCategory = getServicesByCategory(customServices);
-  const enabledServiceCount = flattenCustomServices(customServices).filter(s => s.enabled).length;
+  const globalStats = getGlobalStats();
 
   return (
     <div className={`p-6 ${className}`}>
@@ -293,7 +369,7 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Service Orchestrator</h2>
         <p className="text-gray-700 dark:text-gray-300">
           Configure which services to start in your local AI stack. 
-          Currently {enabledServiceCount} services are enabled.
+          Currently {globalStats.enabled} of {globalStats.total} services are enabled.
         </p>
       </div>
 
@@ -315,100 +391,195 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
         </div>
       )}
 
-      {/* Profile and Environment Selection */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            GPU Profile
-          </label>
-          <select
-            value={selectedProfile}
-            onChange={(e) => setSelectedProfile(e.target.value)}
-            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            {Object.entries(customServices.profiles || {}).map(([profile, config]) => (
-              <option key={profile} value={profile}>
-                {profile.toUpperCase()} - {config.description}
-              </option>
-            ))}
-          </select>
+      {/* Global Controls */}
+      <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Global Controls</h3>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {globalStats.enabled} of {globalStats.total} services enabled
+            </span>
+            <button
+              onClick={() => handleSelectAllGlobal(globalStats.enabled < globalStats.total)}
+              className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+            >
+              {globalStats.enabled === globalStats.total ? (
+                <ToggleRight className="w-4 h-4" />
+              ) : (
+                <ToggleLeft className="w-4 h-4" />
+              )}
+              {globalStats.enabled === globalStats.total ? 'Disable All' : 'Enable All'}
+            </button>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Environment
-          </label>
-          <select
-            value={selectedEnvironment}
-            onChange={(e) => setSelectedEnvironment(e.target.value)}
-            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            {Object.entries(customServices.environments || {}).map(([env, config]) => (
-              <option key={env} value={env}>
-                {env.charAt(0).toUpperCase() + env.slice(1)} - {config.description}
-              </option>
-            ))}
-          </select>
+        {/* Profile and Environment Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              GPU Profile
+            </label>
+            <select
+              value={selectedProfile}
+              onChange={(e) => setSelectedProfile(e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {Object.entries(customServices.profiles || {}).map(([profile, config]) => (
+                <option key={profile} value={profile}>
+                  {profile.toUpperCase()} - {config.description}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Environment
+            </label>
+            <select
+              value={selectedEnvironment}
+              onChange={(e) => setSelectedEnvironment(e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {Object.entries(customServices.environments || {}).map(([env, config]) => (
+                <option key={env} value={env}>
+                  {env.charAt(0).toUpperCase() + env.slice(1)} - {config.description}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Services by Category */}
-      <div className="space-y-6">
-        {Object.entries(servicesByCategory).map(([category, services]) => (
-          <div key={category} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3 capitalize">
-              {category.replace('_', ' ')}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {services.map((service) => {
-                const status = serviceStatus.find(s => s.id === service.id);
-                return (
-                  <div key={service.id} className="border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded p-3">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={service.enabled}
-                          onChange={(e) => handleServiceToggle(service.id, e.target.checked)}
-                          className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-600 rounded"
-                        />
-                        <span className="font-medium text-gray-900 dark:text-gray-100">{service.name}</span>
-                      </div>
-                      {status && (
-                        <span className={`px-2 py-1 text-xs rounded ${
-                          status.status === 'running' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
-                          status.status === 'stopped' ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300' :
-                          'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
-                        }`}>
-                          {status.status}
-                        </span>
+      <div className="space-y-4">
+        {Object.entries(servicesByCategory).map(([category, services]) => {
+          const categoryStats = getCategoryStats(category);
+          const isCollapsed = collapsedCategories.has(category);
+          
+          return (
+            <div key={category} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+              {/* Category Header */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => toggleCategory(category)}
+                      className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="w-5 h-5" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5" />
                       )}
-                    </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{service.description}</p>
-                    {service.dependencies.length > 0 && (
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        Depends on: {service.dependencies.join(', ')}
-                      </div>
+                      <h3 className="text-lg font-semibold capitalize">
+                        {category.replace('_', ' ')}
+                      </h3>
+                    </button>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">
+                      {categoryStats.enabled}/{categoryStats.total}
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={() => handleSelectAllCategory(category, categoryStats.enabled < categoryStats.total)}
+                    className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                  >
+                    {categoryStats.enabled === categoryStats.total ? (
+                      <ToggleRight className="w-4 h-4" />
+                    ) : (
+                      <ToggleLeft className="w-4 h-4" />
                     )}
-                    {(() => {
+                    {categoryStats.enabled === categoryStats.total ? 'Disable All' : 'Enable All'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Services */}
+              {!isCollapsed && (
+                <div className="p-4">
+                  <div className="space-y-3">
+                    {services.map((service) => {
+                      const status = serviceStatus.find(s => s.id === service.id);
                       const dependentServices = getServicesDependingOn(customServices, service.id);
-                      return dependentServices.length > 0 && (
-                        <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                          Required by: {dependentServices.join(', ')}
+                      
+                      return (
+                        <div key={service.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                          <div className="flex items-center gap-3 flex-1">
+                            {/* Service Toggle */}
+                            <button
+                              onClick={() => handleServiceToggle(service.id, !service.enabled)}
+                              className={`flex items-center transition-colors ${
+                                service.enabled 
+                                  ? 'text-blue-600 dark:text-blue-400' 
+                                  : 'text-gray-400 dark:text-gray-500'
+                              }`}
+                              title={service.enabled ? 'Click to disable' : 'Click to enable'}
+                            >
+                              {service.enabled ? (
+                                <ToggleRight className="w-5 h-5" />
+                              ) : (
+                                <ToggleLeft className="w-5 h-5" />
+                              )}
+                            </button>
+                            
+                            {/* Service Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-gray-900 dark:text-gray-100">
+                                  {service.name}
+                                </span>
+                                {status && (
+                                  <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                    status.status === 'running' 
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
+                                      : status.status === 'stopped' 
+                                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' 
+                                      : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                                  }`}>
+                                    {status.status}
+                                  </span>
+                                )}
+                                {service.required && (
+                                  <span className="px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
+                                    Required
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                {service.description}
+                              </p>
+                              
+                              {/* Dependencies and Requirements */}
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                {service.dependencies.length > 0 && (
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    Dependencies: {service.dependencies.join(', ')}
+                                  </span>
+                                )}
+                                {dependentServices.length > 0 && (
+                                  <span className="text-orange-600 dark:text-orange-400">
+                                    Required by: {dependentServices.join(', ')}
+                                  </span>
+                                )}
+                                {service.profiles && selectedProfile && service.profiles[selectedProfile] && (
+                                  <span className="text-blue-600 dark:text-blue-400">
+                                    Profile: {service.profiles[selectedProfile]}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       );
-                    })()}
-                    {service.profiles && selectedProfile && service.profiles[selectedProfile] && (
-                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        Using: {service.profiles[selectedProfile]}
-                      </div>
-                    )}
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Action Buttons */}
@@ -448,7 +619,7 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
 
       {/* Service Count Summary */}
       <div className="mt-4 text-sm text-gray-700 dark:text-gray-300">
-        {enabledServiceCount} of {flattenCustomServices(customServices).length} services enabled
+        {globalStats.enabled} of {globalStats.total} services enabled
       </div>
     </div>
   );

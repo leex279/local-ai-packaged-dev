@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(VITE_API_URL=http://localhost:3002 npm run dev)",
+      "Bash(python3:*)",
+      "Bash(grep:*)",
+      "Bash(node server.js)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(ls:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(rm:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker system prune:*)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(git -C ../supabase status)",
+      "Bash(git -C ../supabase reset --hard HEAD)",
+      "Bash(git -C ../supabase pull)",
+      "Bash(docker logs:*)"
+    ],
+    "deny": []
+  }
+}

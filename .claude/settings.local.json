@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git checkout:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker volume prune -f)",
+      "Bash(python start_services.py --profile cpu)",
+      "Bash(python3:*)",
+      "Bash(docker-compose:*)",
+      "Bash(npm run build:*)",
+      "Bash(docker restart:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(git clone:*)",
+      "Bash(git sparse-checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(npm run lint)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(python:*)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(docker:*)",
+      "Bash(npm install)"
+    ],
+    "deny": []
+  }
+}
