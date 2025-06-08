@@ -340,13 +340,6 @@ export const defaultCustomServices: CustomServicesJson = {
   description: "Configuration file for customizing which services to start in the local AI stack",
   services: {
     core: {
-      "localai-ui": {
-        enabled: true,
-        required: false,
-        description: "Web-based service configurator",
-        category: "infrastructure",
-        dependencies: []
-      },
       caddy: {
         enabled: true,
         required: true,
