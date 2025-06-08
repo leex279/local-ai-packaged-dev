@@ -153,6 +153,7 @@ services:
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME:-":8006"}
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME:-":8007"}
       - NEO4J_HOSTNAME=${NEO4J_HOSTNAME:-":8008"}
+      - LOCALAI_UI_HOSTNAME=${LOCALAI_UI_HOSTNAME:-":8009"}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
     cap_drop:
       - ALL
@@ -393,3 +394,22 @@ services:
     image: ollama/ollama:rocm
     depends_on:
      - ollama-gpu-amd
+
+  localai-ui:
+    build: ./localai-ui
+    container_name: localai-ui
+    restart: unless-stopped
+    expose:
+      - 5000/tcp  # Frontend
+      - 5001/tcp  # Backend API
+    volumes:
+      - ./localai-ui/input:/app/input:ro
+      - ./localai-ui/output:/app/output
+      - ./shared:/app/shared  # For communication with parent project
+      - /var/run/docker.sock:/var/run/docker.sock:rw  # Docker socket for monitoring (rw for WSL2)
+    environment:
+      - VITE_API_URL=http://localhost:5001
+      - PORT=5001
+      - NODE_ENV=production
+    # Run as root to access Docker socket, application will handle security
+    user: "0:0"
