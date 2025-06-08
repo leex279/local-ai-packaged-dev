@@ -85,6 +85,13 @@ def prepare_supabase_env():
         print("Please create a .env file or use the LocalAI UI configurator to generate one.")
         sys.exit(1)
     
+    # Check if destination file exists and ask for confirmation
+    if os.path.exists(env_path):
+        response = input(f"File {env_path} already exists. Do you want to overwrite it? (y/N): ").strip().lower()
+        if response not in ['y', 'yes']:
+            print("Skipping file copy. Using existing .env file.")
+            return
+    
     print(f"Copying {env_source_path} to {env_path}...")
     shutil.copyfile(env_source_path, env_path)
 
