@@ -121,10 +121,10 @@ app.post('/api/save-env', async (req, res) => {
   }
 });
 
-// Get custom services configuration
-app.get('/api/custom-services', async (req, res) => {
+// Get service state (enabled/disabled) from configuration
+app.get('/api/service-state', async (req, res) => {
   try {
-    console.log(`[DEBUG] Get custom services config request received`);
+    console.log(`[DEBUG] Get service state request received`);
     
     const basePath = process.env.NODE_ENV === 'production' ? '/app' : process.cwd();
     const sharedPath = `${basePath}/shared/custom_services.json`;
@@ -132,149 +132,11 @@ app.get('/api/custom-services', async (req, res) => {
     // Check if custom services file exists
     const fileExists = await checkFileAccess(sharedPath);
     if (!fileExists) {
-      console.log(`[DEBUG] Custom services file not found, returning default config`);
-      // Return a default configuration if file doesn't exist
-      const defaultConfig = {
+      console.log(`[DEBUG] Service state file not found, returning empty state`);
+      return res.json({
         version: "1.0",
-        description: "Configuration file for customizing which services to start in the local AI stack",
-        services: {
-          core: {
-            caddy: {
-              enabled: false,
-              required: false,
-              description: "Reverse proxy with automatic HTTPS",
-              category: "infrastructure",
-              dependencies: []
-            }
-          },
-          ai_platforms: {
-            n8n: {
-              enabled: false,
-              required: false,
-              description: "Workflow automation platform",
-              category: "ai",
-              dependencies: ["n8n-import", "postgres"]
-            },
-            "n8n-import": {
-              enabled: false,
-              required: false,
-              description: "N8N workflow and credential importer",
-              category: "ai",
-              dependencies: []
-            },
-            "open-webui": {
-              enabled: false,
-              required: false,
-              description: "ChatGPT-like interface for local models",
-              category: "ai",
-              dependencies: []
-            },
-            flowise: {
-              enabled: false,
-              required: false,
-              description: "No-code AI agent builder",
-              category: "ai",
-              dependencies: []
-            }
-          },
-          llm_services: {
-            ollama: {
-              enabled: false,
-              required: false,
-              description: "Local LLM hosting service",
-              category: "ai",
-              dependencies: [],
-              profiles: {
-                cpu: "ollama-cpu",
-                "gpu-nvidia": "ollama-gpu",
-                "gpu-amd": "ollama-gpu-amd"
-              },
-              pull_services: {
-                cpu: "ollama-pull-llama-cpu",
-                "gpu-nvidia": "ollama-pull-llama-gpu",
-                "gpu-amd": "ollama-pull-llama-gpu-amd"
-              }
-            }
-          },
-          databases: {
-            supabase: {
-              enabled: false,
-              required: false,
-              description: "Complete backend with Postgres, auth, real-time",
-              category: "database",
-              dependencies: [],
-              external_compose: true,
-              compose_path: "./supabase/docker/docker-compose.yml"
-            },
-            qdrant: {
-              enabled: false,
-              required: false,
-              description: "Vector database for RAG operations",
-              category: "database",
-              dependencies: []
-            },
-            neo4j: {
-              enabled: false,
-              required: false,
-              description: "Graph database for knowledge graphs",
-              category: "database",
-              dependencies: []
-            },
-            postgres: {
-              enabled: false,
-              required: false,
-              description: "PostgreSQL database for Langfuse",
-              category: "database",
-              dependencies: []
-            },
-            clickhouse: {
-              enabled: false,
-              required: false,
-              description: "Analytics database for Langfuse",
-              category: "database",
-              dependencies: []
-            },
-            redis: {
-              enabled: false,
-              required: false,
-              description: "Caching and session storage",
-              category: "database",
-              dependencies: []
-            }
-          },
-          monitoring: {
-            "langfuse-web": {
-              enabled: false,
-              required: false,
-              description: "LLM observability web interface",
-              category: "monitoring",
-              dependencies: ["langfuse-worker", "postgres", "clickhouse", "redis", "minio"]
-            },
-            "langfuse-worker": {
-              enabled: false,
-              required: false,
-              description: "Langfuse background worker",
-              category: "monitoring",
-              dependencies: ["postgres", "clickhouse", "redis", "minio"]
-            }
-          },
-          utilities: {
-            searxng: {
-              enabled: false,
-              required: false,
-              description: "Privacy-focused metasearch engine",
-              category: "utility",
-              dependencies: []
-            },
-            minio: {
-              enabled: false,
-              required: false,
-              description: "S3-compatible object storage",
-              category: "utility",
-              dependencies: []
-            }
-          }
-        },
+        description: "Service state configuration",
+        services: {},
         profiles: {
           cpu: { description: "CPU-only mode for Ollama", default: true },
           "gpu-nvidia": { description: "NVIDIA GPU support for Ollama", default: false },
@@ -285,33 +147,48 @@ app.get('/api/custom-services', async (req, res) => {
           private: { description: "Development mode with all ports exposed", default: true },
           public: { description: "Production mode with only ports 80/443 exposed", default: false }
         }
-      };
-      return res.json(defaultConfig);
+      });
     }
     
     const content = await readFile(sharedPath, 'utf8');
     const config = JSON.parse(content);
     
-    console.log(`[DEBUG] Custom services config loaded successfully`);
+    console.log(`[DEBUG] Service state loaded successfully`);
     res.json(config);
   } catch (error) {
-    console.error('[ERROR] Error loading custom services config:', error);
+    console.error('[ERROR] Error loading service state:', error);
     res.status(500).json({ 
-      error: 'Failed to load custom services config', 
+      error: 'Failed to load service state', 
       details: error.message,
       code: error.code
     });
   }
 });
 
-// Save custom services configuration
-app.post('/api/custom-services', async (req, res) => {
+// Legacy endpoint for backward compatibility
+app.get('/api/custom-services', async (req, res) => {
+  // Redirect to new endpoint
+  try {
+    const response = await fetch(`${req.protocol}://${req.get('host')}/api/service-state`);
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[ERROR] Error in legacy custom-services endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to load services', 
+      details: error.message
+    });
+  }
+});
+
+// Save service state configuration
+app.post('/api/service-state', async (req, res) => {
   try {
     const { config } = req.body;
-    console.log(`[DEBUG] Save services config request received`);
+    console.log(`[DEBUG] Save service state request received`);
     
     if (!config) {
-      console.error(`[ERROR] No config provided for save services config`);
+      console.error(`[ERROR] No config provided for save service state`);
       return res.status(400).json({ error: 'No config provided' });
     }
     
@@ -320,7 +197,7 @@ app.post('/api/custom-services', async (req, res) => {
     const outputPath = `${basePath}/output/custom_services.json`;
     const sharedPath = `${basePath}/shared/custom_services.json`;
     
-    console.log(`[DEBUG] Saving services config to: ${outputPath} and ${sharedPath}`);
+    console.log(`[DEBUG] Saving service state to: ${outputPath} and ${sharedPath}`);
     
     const configJson = JSON.stringify(config, null, 2);
     
@@ -331,14 +208,35 @@ app.post('/api/custom-services', async (req, res) => {
     await ensureDirectoryExists(sharedPath);
     await writeFile(sharedPath, configJson, 'utf8');
     
-    console.log(`[DEBUG] Services config saved successfully`);
+    console.log(`[DEBUG] Service state saved successfully`);
     res.json({ success: true, paths: [outputPath, sharedPath] });
   } catch (error) {
-    console.error('[ERROR] Error saving services config:', error);
+    console.error('[ERROR] Error saving service state:', error);
     res.status(500).json({ 
-      error: 'Failed to save services config', 
+      error: 'Failed to save service state', 
       details: error.message,
       code: error.code
+    });
+  }
+});
+
+// Legacy save endpoint for backward compatibility
+app.post('/api/custom-services', async (req, res) => {
+  try {
+    const response = await fetch(`${req.protocol}://${req.get('host')}/api/service-state`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[ERROR] Error in legacy custom-services save endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to save services', 
+      details: error.message
     });
   }
 });

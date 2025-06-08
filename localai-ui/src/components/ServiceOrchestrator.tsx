@@ -8,6 +8,14 @@ import {
   getEnabledServices,
   resolveDependencies
 } from '../utils/serviceOrchestration';
+import { 
+  serviceDefinitions, 
+  getAllServiceDefinitions, 
+  getServicesByCategory as getDefinitionsByCategory,
+  profileDefinitions,
+  environmentDefinitions,
+  ServiceDefinition
+} from '../data/serviceDefinitions';
 
 interface ServiceOrchestratorProps {
   className?: string;
@@ -23,19 +31,24 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCustomServices();
+    loadServicesConfiguration();
     loadServiceStatus();
   }, []);
 
-  const loadCustomServices = async () => {
+  const loadServicesConfiguration = async () => {
     try {
       setLoading(true);
-      const config = await serviceOrchestration.getCustomServices();
-      setCustomServices(config);
       
-      // Set default profile and environment from config
-      const defaultProfile = Object.entries(config.profiles || {}).find(([, p]) => p.default)?.[0] || 'cpu';
-      const defaultEnvironment = Object.entries(config.environments || {}).find(([, e]) => e.default)?.[0] || 'private';
+      // Load service state from API (enabled/disabled preferences)
+      const serviceState = await serviceOrchestration.getCustomServices();
+      
+      // Merge service definitions with state to create complete configuration
+      const mergedConfig = mergeServiceDefinitionsWithState(serviceState);
+      setCustomServices(mergedConfig);
+      
+      // Set default profile and environment
+      const defaultProfile = Object.entries(profileDefinitions).find(([, p]) => p.default)?.[0] || 'cpu';
+      const defaultEnvironment = Object.entries(environmentDefinitions).find(([, e]) => e.default)?.[0] || 'private';
       setSelectedProfile(defaultProfile);
       setSelectedEnvironment(defaultEnvironment);
     } catch (err) {
@@ -43,6 +56,42 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
     } finally {
       setLoading(false);
     }
+  };
+
+  // Merge service definitions from code with state from API
+  const mergeServiceDefinitionsWithState = (serviceState: any): CustomServicesJson => {
+    const mergedServices: any = {};
+    
+    // Start with service definitions from code
+    Object.entries(serviceDefinitions).forEach(([categoryId, categoryServices]) => {
+      mergedServices[categoryId] = {};
+      
+      Object.entries(categoryServices).forEach(([serviceId, serviceDef]) => {
+        // Get state from API or default to false
+        const stateFromApi = serviceState?.services?.[categoryId]?.[serviceId];
+        const enabled = stateFromApi?.enabled || false;
+        
+        mergedServices[categoryId][serviceId] = {
+          enabled,
+          required: serviceDef.required,
+          description: serviceDef.description,
+          category: serviceDef.category,
+          dependencies: serviceDef.dependencies,
+          ...(serviceDef.profiles && { profiles: serviceDef.profiles }),
+          ...(serviceDef.pull_services && { pull_services: serviceDef.pull_services }),
+          ...(serviceDef.external_compose && { external_compose: serviceDef.external_compose }),
+          ...(serviceDef.compose_path && { compose_path: serviceDef.compose_path })
+        };
+      });
+    });
+
+    return {
+      version: "1.0",
+      description: "Configuration file for customizing which services to start in the local AI stack",
+      services: mergedServices,
+      profiles: profileDefinitions,
+      environments: environmentDefinitions
+    };
   };
 
   const loadServiceStatus = async () => {
