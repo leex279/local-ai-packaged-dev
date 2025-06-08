@@ -8,9 +8,11 @@ LocalAI UI Configurator is a React-based web application that provides a user-fr
 
 ## Architecture
 
-### Two-Tab Application Structure
-1. **Service Orchestrator** - Visual service management with `custom_services.json` integration
+### Four-Tab Application Structure
+1. **Service Orchestrator** - Visual service management with intelligent dependency resolution
 2. **Environment Variables** - Configuration management for `.env` files
+3. **Monitoring** - Real-time Docker container monitoring and management
+4. **Export/Import** - Configuration export/import functionality (coming soon)
 
 ### Key Components Architecture
 - **Frontend**: React + TypeScript + Tailwind CSS (port 3000)
@@ -19,8 +21,19 @@ LocalAI UI Configurator is a React-based web application that provides a user-fr
 
 ### Service Orchestration Flow
 ```
-User configures services → ServiceOrchestrator component → Backend API → custom_services.json → start_services.py reads config
+Service definitions (serviceDefinitions.ts) + User preferences (custom_services.json)
+↓
+ServiceOrchestrator component merges definitions with state
+↓  
+Backend API persists only user preferences
+↓
+start_services.py reads config and starts selected services
 ```
+
+### Architectural Separation
+- **Service Definitions**: Stored in code (`src/data/serviceDefinitions.ts`) - single source of truth
+- **User Preferences**: Stored in configuration files (enabled/disabled state only)
+- **Dependency Resolution**: Automatic based on real Docker Compose requirements
 
 ## Common Commands
 
@@ -53,29 +66,35 @@ npm start                     # Start Express server on port 3001
 ## Key Files and Configuration
 
 ### Core Architecture Files
-- `src/App.tsx` - Main application with tab routing and state management
+- `src/App.tsx` - Main application with four-tab routing and state management
 - `src/components/ServiceOrchestrator.tsx` - Primary service configuration interface
+- `src/components/Monitoring/MonitoringDashboard.tsx` - Docker container monitoring interface
 - `src/utils/serviceOrchestration.ts` - Service management utilities and API client
-- `backend/server.js` - Express API server with file operations
+- `backend/server.js` - Express API server with file operations and Docker integration
 
 ### Configuration Management
 - `src/types/index.ts` - TypeScript interfaces for `CustomServicesJson` and service definitions
-- `src/data/services.ts` - Service definitions and default configuration
+- `src/data/serviceDefinitions.ts` - **NEW**: Single source of truth for service definitions
+- `src/data/services.ts` - Legacy service definitions (being phased out)
 - `input/docker-compose.yml` - Reference template for service definitions
 - `output/` - Generated configurations (compose files, env files)
-- `../shared/custom_services.json` - Persisted service configuration for parent orchestration
+- `../shared/custom_services.json` - Persisted user preferences for parent orchestration
 
 ### API Integration
 Backend provides REST endpoints:
-- `GET/POST /api/custom-services` - Service configuration persistence
+- `GET/POST /api/custom-services` - Legacy service configuration persistence  
+- `GET/POST /api/service-state` - **NEW**: User preference persistence (enabled/disabled state only)
 - `GET /api/service-status` - Service monitoring (extensible for Docker integration)
 - `POST /api/start-services` - Service orchestration (placeholder for script integration)
+- `GET /api/docker/*` - **NEW**: Docker container monitoring, logs, stats, and actions
 
 ## Development Workflow
 
 ### Service Configuration Architecture
-The application uses a single unified approach:
-- **Orchestrator Mode**: `custom_services.json` persistence for integration with parent `start_services.py`
+The application uses a **separation of concerns** approach:
+- **Service Definitions**: Hard-coded in `serviceDefinitions.ts` with accurate dependencies from Docker analysis
+- **User Preferences**: Stored in `custom_services.json` with only enabled/disabled state
+- **Dependency Resolution**: Automatic based on real container requirements (N8N → PostgreSQL, Langfuse → multiple databases)
 
 ### Custom Services JSON Schema
 Services are organized hierarchically:
@@ -124,15 +143,31 @@ Backend API is designed for future Docker integration:
 ## Service Categories and Types
 
 Services are categorized for UI organization:
-- **core**: Infrastructure services (localai-ui, caddy)
-- **ai_platforms**: AI workflow tools (n8n, flowise, open-webui)
+- **core**: Infrastructure services (caddy) - localai-ui removed as it runs independently
+- **ai_platforms**: AI workflow tools (n8n, flowise, open-webui) with proper dependencies
 - **llm_services**: Language model hosting (ollama with profile variants)
 - **databases**: Data storage (supabase, qdrant, postgres, redis, etc.)
-- **monitoring**: Observability tools (langfuse)
+- **monitoring**: Observability tools (langfuse with full dependency chain)
 - **utilities**: Supporting services (searxng, minio)
 
 Each service configuration includes:
-- Dependency declarations
-- Profile-specific variants
-- External compose file handling
+- **Accurate dependency declarations** based on real Docker Compose analysis
+- Profile-specific variants (CPU/GPU alternatives)
+- External compose file handling (Supabase)
 - Pull service definitions for model downloads
+
+## Recent Major Changes
+
+### Architecture Refactoring (v2024.12)
+- **Separation of Concerns**: Service definitions now live in code, not configuration files
+- **Accurate Dependencies**: Dependencies reflect real Docker requirements (N8N → PostgreSQL)
+- **Future-Proof**: New services automatically appear when added to `serviceDefinitions.ts`
+- **Docker Monitoring**: Full container lifecycle management added
+- **Export/Import Planning**: Framework for configuration portability
+
+### Key Improvements
+- ✅ **Fixed Dependency Issues**: N8N now correctly shows PostgreSQL dependency
+- ✅ **Removed LocalAI UI Self-Reference**: Service no longer appears in its own interface
+- ✅ **Real-time Monitoring**: Docker container status, logs, metrics, and actions
+- ✅ **Environment Variable Toggles**: Optional settings with enable/disable functionality
+- ✅ **Backward Compatibility**: Legacy endpoints maintained during transition

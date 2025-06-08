@@ -54,6 +54,8 @@ results from up to 229 search services. Users are neither tracked nor profiled, 
 
 ✅ [**Langfuse**](https://langfuse.com/) - Open source LLM engineering platform for agent observability
 
+✅ [**LocalAI UI**](./localai-ui/) - Web-based configurator for customizing service selection and environment variables
+
 ## Prerequisites
 
 Before you begin, make sure you have the following software installed:
@@ -130,6 +132,20 @@ Before running the services, you need to set up your environment variables for S
 ---
 
 The project includes a `start_services.py` script that handles starting both the Supabase and local AI services. The script accepts a `--profile` flag to specify which GPU configuration to use.
+
+Alternatively, you can use the LocalAI UI configurator for a visual interface to select which services to run:
+
+```bash
+python start_configurator.py
+```
+
+This will start a web interface at http://localhost:3000 where you can:
+- Select which services to enable/disable
+- Configure environment variables
+- Monitor Docker containers
+- Export/import configurations (coming soon)
+
+After configuring your services through the UI, you can start them using the normal `start_services.py` script.
 
 ### For Nvidia GPU users
 

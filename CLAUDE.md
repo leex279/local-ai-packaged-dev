@@ -14,7 +14,7 @@ The system uses Docker Compose with profiles for different deployment scenarios:
 - **n8n** (port 5678) - Main workflow automation platform and orchestrator
 - **Ollama** (port 11434) - Local LLM hosting with GPU/CPU support  
 - **Open WebUI** (port 3000) - ChatGPT-like interface for local models
-- **LocalAI UI** (port 3000, backend 3001) - Web-based configurator for customizing Docker Compose services
+- **LocalAI UI** (port 3000, backend 3001) - Web-based configurator with Docker monitoring, service selection, and environment management
 - **Supabase** (ports 54321-54326) - Complete backend with Postgres, auth, real-time
 - **Qdrant** (port 6333) - Vector database for RAG operations
 - **Flowise** (port 3001) - No-code AI agent builder
@@ -93,13 +93,14 @@ cp .env.example .env
 ### Service Configuration with LocalAI UI
 - **Purpose**: Web interface for customizing which services to start without manual file editing
 - **Access**: http://localhost:3000 (frontend) with backend API on port 3001
-- **Input**: Uses `localai-ui/input/docker-compose.yml` and `localai-ui/input/env` as templates
+- **Architecture**: Service definitions in code + user preferences in JSON (separation of concerns)
 - **Output**: Generates `custom_services.json` configuration file that controls service startup
 - **Features**: 
-  - Visual service selection with dependency management
-  - Environment variable configuration interface
-  - Automatic dependency resolution
-  - Configuration-driven service startup via `start_services.py`
+  - Visual service selection with intelligent dependency resolution
+  - Environment variable configuration with toggle functionality
+  - Real-time Docker container monitoring and management
+  - Service definitions always current (stored in code, not config files)
+  - Export/import functionality (coming soon)
 
 ### Configuration-Driven Startup
 The system uses a `custom_services.json` file to control which services are started:
