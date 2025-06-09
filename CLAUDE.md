@@ -95,21 +95,149 @@ cp .env.example .env
 - **Access**: http://localhost:3000 (frontend) with backend API on port 3001
 - **Architecture**: Service definitions in code + user preferences in JSON (separation of concerns)
 - **Output**: Generates `custom_services.json` configuration file that controls service startup
-- **Features**: 
-  - Visual service selection with intelligent dependency resolution
-  - Environment variable configuration with toggle functionality
-  - Real-time Docker container monitoring and management
-  - Service definitions always current (stored in code, not config files)
-  - Export/import functionality (coming soon)
+
+#### LocalAI UI Configurator Features
+1. **Service Orchestrator Tab**:
+   - Visual service selection with modern toggle switches
+   - Collapsible categories with individual and global "select all" functionality
+   - Real-time dependency resolution (enabling N8N automatically enables PostgreSQL)
+   - Profile selection (CPU/GPU variants)
+   - Environment selection (development/production)
+   - Service status monitoring integration
+
+2. **Environment Variables Tab**:
+   - Loads `.env.example` and parses commented/uncommented variables
+   - Toggle switches to enable/disable optional environment variables
+   - Automatic secret generation for passwords, JWT tokens, and encryption keys
+   - Category-based organization of environment variables
+   - Direct file save/load functionality
+
+3. **Docker Monitoring Tab**:
+   - Real-time container status (running/stopped/error)
+   - Container logs viewing with live updates
+   - Resource metrics (CPU, memory, network)
+   - Container actions (start/stop/restart)
+   - Service health checks and diagnostics
+
+4. **Export/Import Tab** (Coming Soon):
+   - Configuration export for sharing setups
+   - Import configurations from files
+   - Template management for common configurations
+
+#### How Configuration Persistence Works
+```javascript
+// 1. Service definitions live in code (always current)
+const serviceDefinitions = {
+  ai_platforms: {
+    n8n: {
+      required: false,
+      description: "Workflow automation platform",
+      dependencies: ["n8n-import", "postgres"],
+      category: "ai_platforms"
+    }
+  }
+};
+
+// 2. User preferences stored separately (only enabled/disabled state)
+const userPreferences = {
+  services: {
+    ai_platforms: {
+      n8n: { enabled: true }
+    }
+  }
+};
+
+// 3. Merged at runtime to create complete configuration
+const mergedConfig = mergeServiceDefinitionsWithState(serviceDefinitions, userPreferences);
+```
+
+#### Integration with start_services.py
+- LocalAI UI writes only user preferences to `shared/custom_services.json`
+- `start_services.py` reads this file and applies service selection logic
+- Dependency resolution ensures required services start automatically
+- Profile selection determines which Ollama variant to start
+- Environment selection applies appropriate Docker Compose overrides
 
 ### Configuration-Driven Startup
-The system uses a `custom_services.json` file to control which services are started:
+The system uses a sophisticated configuration management approach with `custom_services.json`:
 
+#### How the Configurator Works
+1. **Service Definitions**: Hard-coded in `localai-ui/src/data/serviceDefinitions.ts` as single source of truth
+2. **User Preferences**: Stored in `shared/custom_services.json` with only enabled/disabled state
+3. **Merging Logic**: LocalAI UI merges definitions with preferences to create complete configuration
+4. **Persistence**: Only user preferences are saved, ensuring service definitions stay current
+
+#### Custom Services JSON Structure
+```json
+{
+  "version": "1.0",
+  "description": "Configuration file for customizing which services to start",
+  "services": {
+    "ai_platforms": {
+      "n8n": {
+        "enabled": true,
+        "required": false,
+        "description": "Workflow automation platform",
+        "category": "ai_platforms",
+        "dependencies": ["n8n-import", "postgres"]
+      },
+      "flowise": {
+        "enabled": false,
+        "required": false,
+        "description": "No-code AI agent builder",
+        "category": "ai_platforms", 
+        "dependencies": []
+      }
+    },
+    "llm_services": {
+      "ollama": {
+        "enabled": true,
+        "profiles": {
+          "cpu": "ollama-cpu",
+          "gpu-nvidia": "ollama-gpu",
+          "gpu-amd": "ollama-rocm"
+        },
+        "dependencies": []
+      }
+    },
+    "databases": {
+      "supabase": {
+        "enabled": true,
+        "external_compose": true,
+        "compose_path": "supabase/docker/docker-compose.yml",
+        "dependencies": ["postgres", "redis", "minio"]
+      }
+    }
+  },
+  "profiles": {
+    "cpu": { "description": "CPU-only processing", "default": true },
+    "gpu-nvidia": { "description": "NVIDIA GPU acceleration", "default": false },
+    "gpu-amd": { "description": "AMD GPU acceleration", "default": false },
+    "none": { "description": "No local Ollama", "default": false }
+  },
+  "environments": {
+    "private": { "description": "Development with all ports exposed", "default": true },
+    "public": { "description": "Production with only 80/443 exposed", "default": false }
+  }
+}
+```
+
+#### Configuration Processing Flow
+1. **Startup Check**: `start_services.py` checks for `shared/custom_services.json`
+2. **Fallback Behavior**: If no config exists, all services start (backward compatibility)
+3. **Service Selection**: If config exists, only enabled services start
+4. **Dependency Resolution**: Dependencies automatically included even if not explicitly enabled
+5. **Profile Handling**: GPU/CPU variants selected based on `--profile` argument
+6. **Environment Application**: Development vs production configurations applied
+
+#### Key Configuration Features
 - **Location**: `shared/custom_services.json` (created by LocalAI UI)
 - **Fallback**: If no configuration exists, all services start (default behavior)
 - **Dependencies**: Automatically includes required dependencies for selected services
 - **Profiles**: Handles GPU-specific Ollama services based on `--profile` argument
-- **Supabase**: Conditionally starts Supabase stack based on service selection
+- **Supabase**: Conditionally starts entire Supabase stack based on service selection
+- **External Compose**: Supports services with separate Docker Compose files
+- **Transitive Dependencies**: Resolves multi-level dependencies automatically
 
 ### Working with Workflows
 - n8n workflows are auto-imported from `n8n/backup/workflows/`
