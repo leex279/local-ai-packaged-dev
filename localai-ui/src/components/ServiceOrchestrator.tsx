@@ -49,11 +49,14 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
       const mergedConfig = mergeServiceDefinitionsWithState(serviceState);
       setCustomServices(mergedConfig);
       
-      // Set default profile and environment
+      // Set profile and environment from saved preferences or defaults
+      const savedProfile = mergedConfig.userPreferences?.selectedProfile;
+      const savedEnvironment = mergedConfig.userPreferences?.selectedEnvironment;
       const defaultProfile = Object.entries(profileDefinitions).find(([, p]) => p.default)?.[0] || 'cpu';
       const defaultEnvironment = Object.entries(environmentDefinitions).find(([, e]) => e.default)?.[0] || 'private';
-      setSelectedProfile(defaultProfile);
-      setSelectedEnvironment(defaultEnvironment);
+      
+      setSelectedProfile(savedProfile || defaultProfile);
+      setSelectedEnvironment(savedEnvironment || defaultEnvironment);
     } catch (err) {
       setError(`Failed to load services configuration: ${err}`);
     } finally {
@@ -93,7 +96,11 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
       description: "Configuration file for customizing which services to start in the local AI stack",
       services: mergedServices,
       profiles: profileDefinitions,
-      environments: environmentDefinitions
+      environments: environmentDefinitions,
+      userPreferences: {
+        selectedProfile: serviceState?.userPreferences?.selectedProfile,
+        selectedEnvironment: serviceState?.userPreferences?.selectedEnvironment
+      }
     };
   };
 
@@ -215,7 +222,18 @@ export const ServiceOrchestrator: React.FC<ServiceOrchestratorProps> = ({ classN
 
     try {
       setLoading(true);
-      await serviceOrchestration.updateCustomServices(customServices);
+      
+      // Update the configuration with current profile and environment selections
+      const updatedConfig = {
+        ...customServices,
+        userPreferences: {
+          selectedProfile,
+          selectedEnvironment
+        }
+      };
+      
+      await serviceOrchestration.updateCustomServices(updatedConfig);
+      setCustomServices(updatedConfig);
       setSaveMessage('Configuration saved successfully!');
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (err) {

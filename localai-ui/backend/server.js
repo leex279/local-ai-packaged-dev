@@ -478,16 +478,38 @@ app.get('/api/docker/status', async (req, res) => {
     
     const connected = await dockerClient.testConnection();
     
+    // Provide platform-specific troubleshooting information
+    let troubleshooting = [];
+    if (!connected) {
+      troubleshooting = [
+        'Make sure Docker Desktop is installed and running',
+        'On macOS: Try restarting Docker Desktop and ensure it has proper permissions',
+        'On Linux: Check if Docker daemon is running with: sudo systemctl status docker',
+        'On Linux: Add your user to docker group: sudo usermod -aG docker $USER',
+        'Check Docker socket permissions and try running with elevated privileges if needed',
+        'Verify DOCKER_HOST environment variable if using remote Docker'
+      ];
+    }
+    
     res.json({
       connected,
-      message: connected ? 'Docker daemon accessible' : 'Docker daemon not available'
+      message: connected ? 'Docker daemon accessible' : 'Docker daemon not available',
+      troubleshooting: connected ? [] : troubleshooting,
+      platform: process.platform,
+      dockerHost: process.env.DOCKER_HOST || 'default'
     });
   } catch (error) {
     console.error('[ERROR] Docker status check failed:', error);
     res.status(500).json({
       connected: false,
       error: 'Failed to check Docker status',
-      details: error.message
+      details: error.message,
+      troubleshooting: [
+        'Ensure Docker is installed and running',
+        'Check Docker socket permissions',
+        'Try restarting Docker service',
+        'Verify container has access to Docker socket'
+      ]
     });
   }
 });

@@ -3,15 +3,59 @@ import Docker from 'dockerode';
 class DockerClientWrapper {
   constructor() {
     try {
-      // Try to connect to Docker socket
-      this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
-      this.connected = true;
-      console.log('[INFO] Docker client initialized with socket path');
+      // Try different Docker socket paths based on platform and setup
+      this.docker = this.initializeDockerClient();
+      this.connected = this.docker !== null;
+      if (this.connected) {
+        console.log('[INFO] Docker client initialized successfully');
+      }
     } catch (error) {
       console.error('[ERROR] Failed to initialize Docker client:', error.message);
       this.connected = false;
       this.docker = null;
     }
+  }
+
+  initializeDockerClient() {
+    const possiblePaths = [
+      '/var/run/docker.sock',           // Standard Linux/Unix path
+      '\\\\.\\pipe\\docker_engine',    // Windows named pipe
+      '/var/run/docker.sock.raw',      // Some container setups
+      process.env.DOCKER_HOST          // User-specified host
+    ].filter(Boolean); // Remove any undefined values
+
+    for (const socketPath of possiblePaths) {
+      try {
+        console.log(`[DEBUG] Trying Docker socket: ${socketPath}`);
+        
+        if (socketPath.startsWith('\\\\.\\pipe\\')) {
+          // Windows named pipe
+          return new Docker({ socketPath });
+        } else if (socketPath.startsWith('tcp://') || socketPath.startsWith('http://')) {
+          // TCP connection
+          const url = new URL(socketPath);
+          return new Docker({
+            host: url.hostname,
+            port: url.port || 2376,
+            protocol: url.protocol.replace(':', ''),
+            ca: process.env.DOCKER_CERT_PATH ? require('fs').readFileSync(process.env.DOCKER_CERT_PATH + '/ca.pem') : undefined,
+            cert: process.env.DOCKER_CERT_PATH ? require('fs').readFileSync(process.env.DOCKER_CERT_PATH + '/cert.pem') : undefined,
+            key: process.env.DOCKER_CERT_PATH ? require('fs').readFileSync(process.env.DOCKER_CERT_PATH + '/key.pem') : undefined
+          });
+        } else {
+          // Unix socket
+          return new Docker({ socketPath });
+        }
+      } catch (error) {
+        console.log(`[DEBUG] Failed to connect to ${socketPath}: ${error.message}`);
+        continue;
+      }
+    }
+    
+    console.error('[ERROR] Could not connect to Docker daemon on any known socket path');
+    console.error('[INFO] Tried paths:', possiblePaths);
+    console.error('[INFO] Make sure Docker is running and accessible');
+    return null;
   }
 
   isConnected() {
@@ -27,15 +71,29 @@ class DockerClientWrapper {
     try {
       await this.docker.ping();
       console.log('[DEBUG] Docker ping successful');
+      this.connected = true;
       return true;
     } catch (error) {
       console.error('[ERROR] Docker ping failed:', error.message);
+      this.connected = false;
+      
+      // Provide platform-specific troubleshooting information
       if (error.code === 'EACCES') {
-        console.error('[ERROR] Permission denied accessing Docker socket. Check Docker group permissions.');
+        console.error('[ERROR] Permission denied accessing Docker socket.');
+        console.error('[INFO] macOS/Linux: Add your user to the docker group with: sudo usermod -aG docker $USER');
+        console.error('[INFO] Then restart your terminal session or run: newgrp docker');
+        console.error('[INFO] On macOS: Make sure Docker Desktop is running and try restarting it');
       } else if (error.code === 'ENOENT') {
         console.error('[ERROR] Docker socket not found. Is Docker running?');
+        console.error('[INFO] Make sure Docker Desktop is installed and running');
+        console.error('[INFO] On Linux: Make sure Docker daemon is started with: sudo systemctl start docker');
       } else if (error.code === 'ECONNREFUSED') {
         console.error('[ERROR] Connection refused to Docker daemon. Is Docker running?');
+        console.error('[INFO] Check if Docker is running with: docker version');
+      } else if (error.code === 'ENOTFOUND') {
+        console.error('[ERROR] Docker host not found. Check DOCKER_HOST environment variable');
+      } else {
+        console.error('[ERROR] Unknown Docker connection error. Check Docker installation and try restarting Docker');
       }
       return false;
     }

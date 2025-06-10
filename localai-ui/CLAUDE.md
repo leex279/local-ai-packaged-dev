@@ -156,17 +156,59 @@ Each service configuration includes:
 - External compose file handling (Supabase)
 - Pull service definitions for model downloads
 
+## Troubleshooting
+
+### Docker Socket Permission Issues (macOS/Linux)
+
+If you encounter Docker socket permission errors:
+
+**macOS:**
+1. Make sure Docker Desktop is running
+2. Try restarting Docker Desktop
+3. Check Docker Desktop settings → Advanced → Allow the default Docker socket to be used
+4. If running in container, the LocalAI UI may need specific Docker group permissions
+
+**Linux:**
+1. Add your user to the docker group: `sudo usermod -aG docker $USER`
+2. Restart your terminal session or run: `newgrp docker`
+3. Start Docker daemon if not running: `sudo systemctl start docker`
+4. Check Docker socket permissions: `ls -la /var/run/docker.sock`
+
+**Cross-platform Docker Socket Configuration:**
+- Set `DOCKER_SOCKET_PATH` environment variable if using non-standard socket location
+- Set `DOCKER_HOST` for remote Docker connections
+- Set `DOCKER_GROUP_ID` to match your system's docker group ID
+
+### Port Conflicts
+
+**macOS Port 5000 Conflict:**
+- Port 5000 is used by AirPlay receiver on macOS by default
+- LocalAI UI is configured to use ports 5001/5002 to avoid this conflict
+- Access the UI at http://localhost:5001 instead of 5000
+
+### Profile Selection Persistence
+
+**GPU Profile Not Saving:**
+- Ensure you click "Save Configuration" after selecting your GPU profile
+- Profile selection is now persisted in `custom_services.json`
+- Check the configuration file in `shared/custom_services.json` for saved preferences
+
 ## Recent Major Changes
 
 ### Architecture Refactoring (v2024.12)
 - **Separation of Concerns**: Service definitions now live in code, not configuration files
-- **Accurate Dependencies**: Dependencies reflect real Docker requirements (N8N → PostgreSQL)
+- **Accurate Dependencies**: Dependencies reflect real Docker requirements (N8N → Supabase)
 - **Future-Proof**: New services automatically appear when added to `serviceDefinitions.ts`
 - **Docker Monitoring**: Full container lifecycle management added
+- **Cross-platform Compatibility**: Improved Docker socket detection and platform-specific error handling
 - **Export/Import Planning**: Framework for configuration portability
 
 ### Key Improvements
-- ✅ **Fixed Dependency Issues**: N8N now correctly shows PostgreSQL dependency
+- ✅ **Fixed Dependency Issues**: N8N now correctly depends on Supabase (not Postgres)
+- ✅ **Auto-disable Dependencies**: n8n-import automatically disables when n8n is disabled
+- ✅ **Profile Persistence**: GPU profile selection now saves and restores properly
+- ✅ **Cross-platform File Paths**: Fixed Windows path separator issues in startup scripts
+- ✅ **Enhanced Docker Support**: Better socket detection, error messages, and Mac compatibility
 - ✅ **Removed LocalAI UI Self-Reference**: Service no longer appears in its own interface
 - ✅ **Real-time Monitoring**: Docker container status, logs, metrics, and actions
 - ✅ **Environment Variable Toggles**: Optional settings with enable/disable functionality

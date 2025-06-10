@@ -72,7 +72,7 @@ def prepare_supabase_env():
     
     # Check for .env file in shared directory first (created by LocalAI UI), then root
     shared_env_path = os.path.join("shared", ".env")
-    root_env_path = os.path.join(".env")
+    root_env_path = ".env"
     
     if os.path.exists(shared_env_path):
         env_source_path = shared_env_path
@@ -85,6 +85,9 @@ def prepare_supabase_env():
         print("Please create a .env file or use the LocalAI UI configurator to generate one.")
         sys.exit(1)
     
+    # Ensure destination directory exists
+    os.makedirs(os.path.dirname(env_path), exist_ok=True)
+    
     # Check if destination file exists and ask for confirmation
     if os.path.exists(env_path):
         response = input(f"File {env_path} already exists. Do you want to overwrite it? (y/N): ").strip().lower()
@@ -93,7 +96,12 @@ def prepare_supabase_env():
             return
     
     print(f"Copying {env_source_path} to {env_path}...")
-    shutil.copyfile(env_source_path, env_path)
+    try:
+        shutil.copyfile(env_source_path, env_path)
+        print(f"Successfully copied environment file to {env_path}")
+    except Exception as e:
+        print(f"ERROR: Failed to copy environment file: {e}")
+        sys.exit(1)
 
 def stop_existing_containers(profile=None, config=None):
     print("Stopping and removing existing containers for the unified project 'localai'...")
@@ -290,7 +298,7 @@ def check_and_fix_docker_compose_for_searxng():
 
 def load_custom_services_config():
     """Load the custom services configuration from the shared directory."""
-    config_path = "shared/custom_services.json"
+    config_path = os.path.join("shared", "custom_services.json")
     
     if not os.path.exists(config_path):
         print(f"No custom services configuration found at {config_path}")

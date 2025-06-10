@@ -14,7 +14,7 @@ The system uses Docker Compose with profiles for different deployment scenarios:
 - **n8n** (port 5678) - Main workflow automation platform and orchestrator
 - **Ollama** (port 11434) - Local LLM hosting with GPU/CPU support  
 - **Open WebUI** (port 3000) - ChatGPT-like interface for local models
-- **LocalAI UI** (port 3000, backend 3001) - Web-based configurator with Docker monitoring, service selection, and environment management
+- **LocalAI UI** (port 5001, backend 5002) - Web-based configurator with Docker monitoring, service selection, and environment management
 - **Supabase** (ports 54321-54326) - Complete backend with Postgres, auth, real-time
 - **Qdrant** (port 6333) - Vector database for RAG operations
 - **Flowise** (port 3001) - No-code AI agent builder
@@ -82,7 +82,7 @@ cp .env.example .env
 1. Configure `.env` with required secrets (POSTGRES_PASSWORD, JWT_SECRET, etc.)
 2. **Option A - Custom Configuration**:
    - Run `python start_services.py --profile [gpu-type]` to start all services including LocalAI UI
-   - Access LocalAI UI at http://localhost:3000 to select desired services
+   - Access LocalAI UI at http://localhost:5001 to select desired services
    - Save configuration (creates `shared/custom_services.json`)
    - Restart with `python start_services.py --profile [gpu-type]` (now uses custom config)
 3. **Option B - Default All Services**:
@@ -92,9 +92,17 @@ cp .env.example .env
 
 ### Service Configuration with LocalAI UI
 - **Purpose**: Web interface for customizing which services to start without manual file editing
-- **Access**: http://localhost:3000 (frontend) with backend API on port 3001
+- **Access**: http://localhost:5001 (frontend) with backend API on port 5002
 - **Architecture**: Service definitions in code + user preferences in JSON (separation of concerns)
 - **Output**: Generates `custom_services.json` configuration file that controls service startup
+
+### Platform-Specific Notes
+
+#### macOS Compatibility
+- **Port Configuration**: Uses ports 5001/5002 to avoid conflict with AirPlay receiver on port 5000
+- **Docker Desktop**: Ensure Docker Desktop is running and has proper permissions
+- **Socket Access**: May require Docker Desktop settings adjustment for socket access
+- **Troubleshooting**: Check Docker group permissions if container monitoring doesn't work
 
 #### LocalAI UI Configurator Features
 1. **Service Orchestrator Tab**:

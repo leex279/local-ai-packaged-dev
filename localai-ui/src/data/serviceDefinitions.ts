@@ -49,14 +49,14 @@ export const serviceDefinitions: ServiceDefinitions = {
       name: "n8n",
       description: "Workflow automation platform",
       category: "ai", 
-      dependencies: ["n8n-import", "postgres"],
+      dependencies: ["supabase"],
       required: false
     },
     "n8n-import": {
       name: "n8n Import",
       description: "N8N workflow and credential importer",
       category: "ai",
-      dependencies: [],
+      dependencies: ["n8n"],
       required: false
     },
     "open-webui": {

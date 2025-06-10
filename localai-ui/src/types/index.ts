@@ -36,6 +36,10 @@ export interface CustomServicesJson {
       default: boolean;
     };
   };
+  userPreferences?: {
+    selectedProfile?: string;
+    selectedEnvironment?: string;
+  };
 }
 
 
