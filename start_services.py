@@ -362,6 +362,17 @@ def resolve_service_dependencies(config, enabled_services):
                 
                 for dep in dependencies:
                     if dep not in resolved_services:
+                        # Find the dependency service configuration
+                        dep_config = None
+                        for dep_category, dep_services in config['services'].items():
+                            if dep in dep_services:
+                                dep_config = dep_services[dep]
+                                break
+                        
+                        # Skip services with external_compose since they're handled separately
+                        if dep_config and dep_config.get('external_compose', False):
+                            continue
+                            
                         resolved_services.add(dep)
                         add_dependencies(dep)  # Recursively resolve dependencies
                 break
