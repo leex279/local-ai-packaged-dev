@@ -82,12 +82,16 @@ services:
   n8n-import:
     <<: *service-n8n
     container_name: n8n-import
+    restart: "no"
     entrypoint: /bin/sh
     command:
       - "-c"
       - "n8n import:credentials --separate --input=/backup/credentials && n8n import:workflow --separate --input=/backup/workflows"
     volumes:
-      - ./n8n/backup:/backup  
+      - ./n8n/backup:/backup
+    depends_on:
+      n8n:
+        condition: service_healthy  
 
   n8n:
     <<: *service-n8n
@@ -99,9 +103,12 @@ services:
       - n8n_storage:/home/node/.n8n
       - ./n8n/backup:/backup
       - ./shared:/data/shared
-    depends_on:
-      n8n-import:
-        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   qdrant:
     image: qdrant/qdrant
