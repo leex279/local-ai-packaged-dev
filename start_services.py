@@ -401,13 +401,327 @@ def should_start_searxng(config):
     searxng_config = config.get('services', {}).get('utilities', {}).get('searxng', {})
     return searxng_config.get('enabled', False)
 
+def get_directory_size(path):
+    """Get the size of a directory in MB."""
+    try:
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(path):
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                if os.path.exists(filepath):
+                    total_size += os.path.getsize(filepath)
+        return total_size / (1024 * 1024)  # Convert to MB
+    except Exception:
+        return 0
+
+def list_cleanup_items():
+    """List all items that will be deleted during cleanup."""
+    items = []
+    
+    # Docker resources
+    items.append("Docker Resources:")
+    items.append("  ✓ All containers for project 'localai'")
+    
+    # Get list of Docker volumes
+    try:
+        result = subprocess.run(["docker", "volume", "ls", "-q"], 
+                              capture_output=True, text=True, check=False)
+        volumes = [v for v in result.stdout.strip().split('\n') if v and 'localai' in v]
+        if volumes:
+            items.append(f"  ✓ {len(volumes)} Docker volumes (n8n_storage, ollama_storage, ...)")
+        else:
+            items.append("  ✓ Docker volumes (if any exist)")
+    except Exception:
+        items.append("  ✓ Docker volumes (if any exist)")
+    
+    items.append("  ✓ Docker networks for project 'localai'")
+    items.append("")
+    
+    # Host directories
+    items.append("Host Directories:")
+    directories = [
+        ("./supabase/", "Supabase repository"),
+        ("./neo4j/", "Neo4j database and logs"),
+        ("./shared/", "Shared files and configuration"),
+        ("./localai-ui/node_modules/", "LocalAI UI frontend dependencies"),
+        ("./localai-ui/backend/node_modules/", "LocalAI UI backend dependencies"),
+        ("./localai-ui/dist/", "LocalAI UI built assets"),
+        ("./localai-ui/output/", "LocalAI UI output files"),
+    ]
+    
+    for dir_path, description in directories:
+        if os.path.exists(dir_path):
+            size = get_directory_size(dir_path)
+            items.append(f"  ✓ {dir_path} ({description}) - {size:.1f} MB")
+        else:
+            items.append(f"  ✓ {dir_path} ({description}) - Not found")
+    
+    items.append("")
+    
+    # Configuration files
+    items.append("Configuration Files:")
+    config_files = [
+        ("./searxng/settings.yml", "SearXNG generated settings"),
+        ("./supabase/docker/.env", "Supabase environment file"),
+    ]
+    
+    for file_path, description in config_files:
+        if os.path.exists(file_path):
+            items.append(f"  ✓ {file_path} ({description})")
+        else:
+            items.append(f"  ✓ {file_path} ({description}) - Not found")
+    
+    return items
+
+def parse_env_file(file_path):
+    """Parse an environment file and return a dictionary of variables."""
+    env_vars = {}
+    if not os.path.exists(file_path):
+        return env_vars
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                # Skip empty lines and comments
+                if not line or line.startswith('#'):
+                    continue
+                
+                # Handle KEY=value format
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Remove quotes if present
+                    if value.startswith('"') and value.endswith('"'):
+                        value = value[1:-1]
+                    elif value.startswith("'") and value.endswith("'"):
+                        value = value[1:-1]
+                    env_vars[key] = value
+    except Exception as e:
+        print(f"Error parsing {file_path}: {e}")
+    
+    return env_vars
+
+def validate_env_file():
+    """Validate .env file against .env.example and return missing/extra variables."""
+    env_path = ".env"
+    example_path = ".env.example"
+    
+    if not os.path.exists(env_path):
+        return None, f".env file not found at {env_path}"
+    
+    if not os.path.exists(example_path):
+        return None, f".env.example file not found at {example_path}"
+    
+    current_vars = parse_env_file(env_path)
+    example_vars = parse_env_file(example_path)
+    
+    missing_vars = set(example_vars.keys()) - set(current_vars.keys())
+    extra_vars = set(current_vars.keys()) - set(example_vars.keys())
+    
+    return {
+        'missing': list(missing_vars),
+        'extra': list(extra_vars),
+        'current_vars': current_vars,
+        'example_vars': example_vars
+    }, None
+
+def update_env_file(missing_vars, example_vars):
+    """Add missing variables to .env file."""
+    env_path = ".env"
+    
+    try:
+        # Read current .env file
+        with open(env_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Add missing variables at the end
+        if missing_vars:
+            content += "\n# Added missing variables from .env.example\n"
+            for var in missing_vars:
+                value = example_vars.get(var, '')
+                content += f"{var}={value}\n"
+        
+        # Write back to file
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        return True
+    except Exception as e:
+        print(f"Error updating .env file: {e}")
+        return False
+
+def confirm_cleanup():
+    """Ask user for confirmation and show what will be deleted."""
+    print("\\033[91mWARNING: This will permanently delete ALL data from the local AI stack!\\033[0m\\n")
+    
+    items = list_cleanup_items()
+    print("The following will be PERMANENTLY DELETED:")
+    for item in items:
+        print(item)
+    
+    print("\\nAre you ABSOLUTELY SURE you want to delete all this data? [y/N]: ", end="")
+    response = input().strip().lower()
+    return response in ['y', 'yes']
+
+def clean_docker_resources():
+    """Clean up Docker containers, volumes, and networks."""
+    print("Cleaning Docker resources...")
+    
+    try:
+        # Stop and remove containers with volumes
+        print("  Stopping and removing containers...")
+        subprocess.run([
+            "docker", "compose", "-p", "localai", "down", "-v", "--remove-orphans"
+        ], check=False, capture_output=True)
+        
+        # Remove any remaining volumes with localai in the name
+        print("  Removing volumes...")
+        result = subprocess.run(["docker", "volume", "ls", "-q"], 
+                              capture_output=True, text=True, check=False)
+        volumes = [v for v in result.stdout.strip().split('\\n') if v and 'localai' in v]
+        
+        for volume in volumes:
+            subprocess.run(["docker", "volume", "rm", volume], check=False, capture_output=True)
+        
+        # Remove networks
+        print("  Removing networks...")
+        result = subprocess.run(["docker", "network", "ls", "--filter", "name=localai", "-q"], 
+                              capture_output=True, text=True, check=False)
+        networks = [n for n in result.stdout.strip().split('\\n') if n]
+        
+        for network in networks:
+            subprocess.run(["docker", "network", "rm", network], check=False, capture_output=True)
+            
+    except Exception as e:
+        print(f"  Warning: Some Docker cleanup operations failed: {e}")
+
+def clean_host_directories():
+    """Clean up host directories."""
+    print("Cleaning host directories...")
+    
+    directories = [
+        "./supabase/",
+        "./neo4j/",
+        "./shared/",
+        "./localai-ui/node_modules/",
+        "./localai-ui/backend/node_modules/",
+        "./localai-ui/dist/",
+        "./localai-ui/output/",
+    ]
+    
+    for directory in directories:
+        if os.path.exists(directory):
+            try:
+                print(f"  Removing {directory}...")
+                shutil.rmtree(directory)
+            except Exception as e:
+                print(f"  Warning: Failed to remove {directory}: {e}")
+
+def clean_config_files():
+    """Clean up configuration files."""
+    print("Cleaning configuration files...")
+    
+    files = [
+        "./searxng/settings.yml",
+        "./supabase/docker/.env",
+    ]
+    
+    for file_path in files:
+        if os.path.exists(file_path):
+            try:
+                print(f"  Removing {file_path}...")
+                os.remove(file_path)
+            except Exception as e:
+                print(f"  Warning: Failed to remove {file_path}: {e}")
+
+def handle_env_file():
+    """Handle .env file deletion and validation."""
+    env_path = ".env"
+    
+    if not os.path.exists(env_path):
+        print("No .env file found.")
+        return
+    
+    print(f"\\nDo you also want to delete the .env file? This contains your passwords and secrets. [y/N]: ", end="")
+    response = input().strip().lower()
+    
+    if response in ['y', 'yes']:
+        try:
+            os.remove(env_path)
+            print("Deleted .env file.")
+        except Exception as e:
+            print(f"Warning: Failed to delete .env file: {e}")
+    else:
+        print("\\nKeeping .env file. Validating against .env.example...")
+        
+        validation_result, error = validate_env_file()
+        if error:
+            print(f"⚠️  {error}")
+            return
+        
+        missing_vars = validation_result['missing']
+        extra_vars = validation_result['extra']
+        
+        print("✓ Found .env file")
+        print("✓ Found .env.example template")
+        
+        if missing_vars:
+            print(f"⚠️  Missing variables in .env:")
+            for var in missing_vars:
+                print(f"   - {var}")
+            
+            print(f"\\nWould you like to add the missing variables to .env? [y/N]: ", end="")
+            response = input().strip().lower()
+            
+            if response in ['y', 'yes']:
+                if update_env_file(missing_vars, validation_result['example_vars']):
+                    print("✓ Updated .env file with missing variables (preserved existing values).")
+                else:
+                    print("⚠️  Failed to update .env file.")
+        else:
+            print("✓ All required variables present")
+        
+        if extra_vars:
+            print(f"ℹ️  Extra variables in .env (not in template):")
+            for var in extra_vars:
+                print(f"   - {var}")
+
+def perform_cleanup():
+    """Perform the complete cleanup process."""
+    if not confirm_cleanup():
+        print("Cleanup cancelled.")
+        sys.exit(0)
+    
+    print("\\nProceeding with cleanup...")
+    
+    # Clean Docker resources
+    clean_docker_resources()
+    
+    # Clean host directories
+    clean_host_directories()
+    
+    # Clean configuration files
+    clean_config_files()
+    
+    # Handle .env file separately
+    handle_env_file()
+
 def main():
     parser = argparse.ArgumentParser(description='Start the local AI and Supabase services.')
     parser.add_argument('--profile', choices=['cpu', 'gpu-nvidia', 'gpu-amd', 'none'], default='cpu',
                       help='Profile to use for Docker Compose (default: cpu)')
     parser.add_argument('--environment', choices=['private', 'public'], default='private',
                       help='Environment to use for Docker Compose (default: private)')
+    parser.add_argument('--clean', action='store_true',
+                      help='Perform a clean install by removing all existing data and containers')
     args = parser.parse_args()
+
+    # Handle clean option
+    if args.clean:
+        perform_cleanup()
+        print("\nCleanup completed. Starting fresh installation...\n")
 
     # Load custom services configuration
     config = load_custom_services_config()
