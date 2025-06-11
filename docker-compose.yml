@@ -104,7 +104,7 @@ services:
       - ./n8n/backup:/backup
       - ./shared:/data/shared
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/5678' || exit 1"]
+      test: ["CMD-SHELL", "netstat -ln | grep :5678 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
