@@ -104,7 +104,7 @@ services:
       - ./n8n/backup:/backup
       - ./shared:/data/shared
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5678/healthz || exit 1"]
+      test: ["CMD-SHELL", "nc -z localhost 5678 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
