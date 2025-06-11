@@ -15,6 +15,7 @@ import argparse
 import platform
 import sys
 import json
+from datetime import datetime
 
 def run_command(cmd, cwd=None):
     """Run a shell command and print it."""
@@ -88,12 +89,18 @@ def prepare_supabase_env():
     # Ensure destination directory exists
     os.makedirs(os.path.dirname(env_path), exist_ok=True)
     
-    # Check if destination file exists and ask for confirmation
+    # Check if destination file exists and offer backup
     if os.path.exists(env_path):
-        response = input(f"File {env_path} already exists. Do you want to overwrite it? (y/N): ").strip().lower()
-        if response not in ['y', 'yes']:
-            print("Skipping file copy. Using existing .env file.")
-            return
+        response = input(f"File {env_path} already exists. Do you want to create a backup? (y/N): ").strip().lower()
+        if response in ['y', 'yes']:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = f"{env_path}.backup_{timestamp}"
+            try:
+                shutil.copyfile(env_path, backup_path)
+                print(f"Created backup: {backup_path}")
+            except Exception as e:
+                print(f"Warning: Failed to create backup: {e}")
+        # Always proceed with copying the new file
     
     print(f"Copying {env_source_path} to {env_path}...")
     try:
