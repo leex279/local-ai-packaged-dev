@@ -1,9 +1,9 @@
 import React from 'react';
-import { Settings2Icon, FileTextIcon, PlayIcon, ActivityIcon, DownloadIcon } from 'lucide-react';
+import { Settings2Icon, FileTextIcon, PlayIcon, ActivityIcon, DownloadIcon, BrainIcon } from 'lucide-react';
 
 interface NavigationProps {
-  activeTab: 'env' | 'orchestrator' | 'monitoring' | 'export';
-  onTabChange: (tab: 'env' | 'orchestrator' | 'monitoring' | 'export') => void;
+  activeTab: 'env' | 'orchestrator' | 'monitoring' | 'export' | 'ollama';
+  onTabChange: (tab: 'env' | 'orchestrator' | 'monitoring' | 'export' | 'ollama') => void;
 }
 
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
@@ -44,6 +44,13 @@ export default function Navigation({ activeTab, onTabChange }: NavigationProps) 
             <ActivityIcon className="w-4 h-4 mr-2" />
             Monitoring
           </button>
+          <div
+            className="flex items-center px-4 py-3 text-sm font-medium text-gray-400 dark:text-gray-500 cursor-not-allowed"
+            title="Feature coming soon"
+          >
+            <BrainIcon className="w-4 h-4 mr-2" />
+            Ollama Manager (coming soon...)
+          </div>
           <div
             className="flex items-center px-4 py-3 text-sm font-medium text-gray-400 dark:text-gray-500 cursor-not-allowed"
             title="Feature coming soon"
